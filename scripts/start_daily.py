@@ -130,7 +130,7 @@ def main() -> int:
                 "state": "failed",
                 "error_code": "dependency_missing",
                 "error": "缺少依赖：" + "、".join(missing),
-                "hint": "先运行 setup.bat",
+                "hint": "先运行 setup_silent.bat",
             }
         )
         return 1

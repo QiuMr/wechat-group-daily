@@ -1,5 +1,7 @@
 .venv/
+.venv_backup_*/
 __pycache__/
+logs/
 config/groups.json
 .tmp*/
 .verify*/

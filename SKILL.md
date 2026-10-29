@@ -2,7 +2,7 @@
 name: wechat-group-daily
 description: 回捞指定微信群某一天的聊天记录，由豆包逐条读消息、逐张看图，整理成“一条联系方式一条线索”的群日报，并生成一页式 HTML 和 Excel。当用户说“跑一下昨天的群日报”“看看几个群谁领了线索”“打开群日报”时使用。只读采集，不发送任何消息。
 metadata:
-  version: "0.2.0"
+  version: "0.2.1"
   display_name: "微信群日报"
   author: "rent-lead-hub"
 ---
@@ -43,22 +43,33 @@ metadata:
 3. **领取范围由豆包按语义判断**：`1`、`我要`、`接了`、`私聊`，以及其他表示领取的话都算；不按固定关键词硬切。
 4. **图片由豆包逐张看**：它认为是线索才算；图里读出几个联系方式，就可能拆成几条线索。
 
-## 第一次使用
+## 第一次使用：豆包自己装
 
-1. 把 `wechat-group-daily.zip` 解压到本机技能目录，或让豆包从 GitHub 安装。
-2. 双击 `setup.bat`，建 `.venv`、装 `wxauto4==41.1.7` 和 `openpyxl`。
-3. 编辑 `config\groups.json`，填 7 个群的完整群名；发布人填了只作提示，不填也不影响“任何人可发线索”。
-4. 登录微信，主窗口不要最小化。
-5. 再按下面的标准流程跑。
+客户不需要会装 Python，也不要让客户双击任何东西。你按顺序做：
 
-所有命令都在技能根目录执行。如果存在 `.venv\Scripts\python.exe`，优先用它；下文用 `python` 代指。
+1. 确认技能已经在本机；能从 GitHub 安装就自己安装，不能就让客户把 zip 解压到技能目录。
+2. 检查 `.venv\Scripts\python.exe` 是否存在：
+   - 不存在：运行 `setup_silent.bat`（约 5–10 分钟，不暂停、不需要管理员）。
+   - 存在：运行 `.venv\Scripts\python.exe -c "import wxauto4, openpyxl"` 确认能导入。
+3. `setup_silent.bat` 会自动：
+   - 本机没有 Python 3.12 时，用国内镜像安装（npmmirror / 华为云，校验签名）；
+   - 用清华 PyPI 源安装 `wxauto4==41.1.7`、`openpyxl`，失败自动换阿里云；
+   - 第一次运行时创建 `config\groups.json`。
+   读它最后一行 JSON：`ok:true` 才继续；`ok:false` 按 `error_code` 处理（见“失败处理”）。
+4. 填 `config\groups.json` 的完整群名；没有就让客户提供，或先只配已知的群。
+5. 登录微信，主窗口不要最小化。
+6. 按下面的标准流程跑。
+
+安装期间不要让客户操作电脑；杀毒软件弹窗让客户点“允许”。客户机必须能上网。
+
+所有命令都在技能根目录执行，统一用 `.venv\Scripts\python.exe`；不要用系统 `python`，客户机上可能没有或版本不对。
 
 ## 标准流程
 
 ### 第 1 步：查状态
 
 ```bash
-python scripts/status.py --date yesterday
+.venv\Scripts\python.exe scripts/status.py --date yesterday
 ```
 
 看 `state`：
@@ -73,7 +84,7 @@ python scripts/status.py --date yesterday
 ### 第 2 步：采集并生成工作台
 
 ```bash
-python scripts/start_daily.py --date yesterday
+.venv\Scripts\python.exe scripts/start_daily.py --date yesterday
 ```
 
 它会后台回捞，约 15–25 分钟，立刻返回。告诉用户：
@@ -193,7 +204,7 @@ python scripts/start_daily.py --date yesterday
 2. 运行：
 
 ```bash
-python scripts/mark_slice.py --work "<workdir>" --group g1 --slice part-001
+.venv\Scripts\python.exe scripts/mark_slice.py --work "<workdir>" --group g1 --slice part-001
 ```
 
 它会把 `progress.json` 往前推；断了以后看 `progress.json` 就能接着做。
@@ -203,13 +214,13 @@ python scripts/mark_slice.py --work "<workdir>" --group g1 --slice part-001
 每个群做完，先跑：
 
 ```bash
-python scripts/check_group.py --work "<workdir>" --group g1
+.venv\Scripts\python.exe scripts/check_group.py --work "<workdir>" --group g1
 ```
 
 全部群做完，再跑一次不带 `--group` 的：
 
 ```bash
-python scripts/check_group.py --work "<workdir>"
+.venv\Scripts\python.exe scripts/check_group.py --work "<workdir>"
 ```
 
 看返回：
@@ -221,7 +232,7 @@ python scripts/check_group.py --work "<workdir>"
 ### 第 5 步：生成报告
 
 ```bash
-python scripts/finalize_agent.py --work "<workdir>" --out "<date_dir>/report" --home "<home>"
+.venv\Scripts\python.exe scripts/finalize_agent.py --work "<workdir>" --out "<date_dir>/report" --home "<home>"
 ```
 
 `date_dir` 就是 `workdir` 的上一级，例如：
@@ -244,7 +255,7 @@ python scripts/finalize_agent.py --work "<workdir>" --out "<date_dir>/report" --
 ### 第 6 步：给用户看和回答
 
 ```bash
-python scripts/open_report.py --date yesterday
+.venv\Scripts\python.exe scripts/open_report.py --date yesterday
 ```
 
 先读 `summary.json` 的 `brief_lines`，给用户 4–5 行结论，再打开报告。
@@ -270,7 +281,11 @@ python scripts/open_report.py --date yesterday
 
 | error_code | 对用户怎么说 | 怎么修 |
 | --- | --- | --- |
-| `dependency_missing` | 这台电脑还没装采集依赖 | 运行 `setup.bat` |
+| `python_missing` | 自动装 Python 3.12 失败 | 检查网络；或手动装 Python 3.12 后重跑 `setup_silent.bat` |
+| `venv_failed` | 虚拟环境没建起来 | 看 `logs\bootstrap.log`；杀毒拦截或磁盘不可写 |
+| `pip_failed` | 依赖没装上 | 换源重试：`setup_silent.bat -PipMirror https://mirrors.aliyun.com/pypi/simple/` |
+| `verify_failed` | 依赖装了但导入失败 | 删掉 `.venv` 后重跑；仍失败查杀毒软件 |
+| `dependency_missing` | 这台电脑还没装采集依赖 | 运行 `setup_silent.bat` |
 | `wechat_not_running` | 微信没开或没登录 | 登录微信，主窗口不要最小化 |
 | `wechat_not_ready` | 微信挂不上 | 确认 4.1.8.x、已登录、窗口没最小化 |
 | `config_invalid` | 群配置没填好 | 补 `config/groups.json` 的完整群名 |
@@ -294,31 +309,34 @@ python scripts/open_report.py --date yesterday
 ## 命令速查
 
 ```bash
+# 第一次安装（豆包自己跑，不暂停）
+setup_silent.bat
+
 # 查状态
-python scripts/status.py --date yesterday
+.venv\Scripts\python.exe scripts/status.py --date yesterday
 
 # 采集 + 生成工作台（后台，约 15–25 分钟）
-python scripts/start_daily.py --date yesterday
+.venv\Scripts\python.exe scripts/start_daily.py --date yesterday
 
 # 强制重采（会备份旧工作台）
-python scripts/start_daily.py --date yesterday --force
+.venv\Scripts\python.exe scripts/start_daily.py --date yesterday --force
 
 # 标记一片读完
-python scripts/mark_slice.py --work "<workdir>" --group g1 --slice part-001
+.venv\Scripts\python.exe scripts/mark_slice.py --work "<workdir>" --group g1 --slice part-001
 
 # 校验一个群 / 全部
-python scripts/check_group.py --work "<workdir>" --group g1
-python scripts/check_group.py --work "<workdir>"
+.venv\Scripts\python.exe scripts/check_group.py --work "<workdir>" --group g1
+.venv\Scripts\python.exe scripts/check_group.py --work "<workdir>"
 
 # 生成报告
-python scripts/finalize_agent.py --work "<workdir>" --out "<date_dir>/report" --home "<home>"
+.venv\Scripts\python.exe scripts/finalize_agent.py --work "<workdir>" --out "<date_dir>/report" --home "<home>"
 
 # 打开报告
-python scripts/open_report.py --date yesterday
+.venv\Scripts\python.exe scripts/open_report.py --date yesterday
 
 # 今天到现在
-python scripts/status.py --date today
-python scripts/start_daily.py --date today
+.venv\Scripts\python.exe scripts/status.py --date today
+.venv\Scripts\python.exe scripts/start_daily.py --date today
 ```
 
 ## 数据放在哪

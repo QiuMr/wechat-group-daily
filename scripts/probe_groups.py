@@ -25,7 +25,7 @@ from typing import Any
 try:
     from wxauto4 import WeChat
 except Exception as exc:  # noqa: BLE001
-    print("无法导入 wxauto4。请先运行 setup.bat，或确认当前 Python 能 import wxauto4。")
+    print("无法导入 wxauto4。请先运行 setup_silent.bat，或确认当前 Python 能 import wxauto4。")
     print(f"错误：{type(exc).__name__}: {exc}")
     raise SystemExit(2)
 

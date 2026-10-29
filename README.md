@@ -10,7 +10,7 @@ GitHub：<https://github.com/QiuMr/wechat-group-daily>
 
 - Windows 10/11
 - 微信电脑版 4.1.8.x（4.1.12+ 免费版挂不上）
-- Python 3.12
+- 能上网：首次安装要从国内镜像下载 Python 3.12 和依赖
 - 采集电脑在目标日期之前就登录微信，并保持在线
 - 豆包工作模式能读写本地文件、打开本地图片；云端沙盒不行
 
@@ -34,11 +34,25 @@ git clone https://github.com/QiuMr/wechat-group-daily.git
 
 解压 `wechat-group-daily.zip` 到本机技能目录。
 
-### 初始化
+### 初始化（豆包自动）
 
-1. 双击 `setup.bat`，会创建 `.venv` 并安装 `wxauto4==41.1.7`、`openpyxl`。
-2. 编辑 `config\groups.json`，填 7 个群的完整群名。
-3. 登录微信，主窗口不要最小化。
+让豆包在技能目录运行：
+
+```bat
+setup_silent.bat
+```
+
+它会用国内镜像自动安装 Python 3.12（本机没有时）和依赖，约 5–10 分钟，不暂停、不需要管理员。最后一行的 JSON 里 `ok:true` 即完成。
+
+人工安装可以双击 `setup.bat`，逻辑相同，只是结尾会暂停。
+
+默认源：Python 安装包来自 npmmirror / 华为云（校验签名），依赖来自清华 PyPI；失败自动换阿里云。手动换源：
+
+```bat
+setup_silent.bat -PipMirror https://mirrors.aliyun.com/pypi/simple/
+```
+
+装完后编辑 `config\groups.json`，填 7 个群的完整群名，再登录微信。
 
 ## 新版流程：豆包整理，Python 辅助
 
@@ -131,6 +145,20 @@ g1/
 **豆包整理到一半断了怎么办？**
 
 看 `work/<群>/progress.json` 的 `done_slices`，从没标记的那一片继续；工作台文件就是进度。
+
+**安装时下载 Python 或依赖很慢/失败？**
+
+默认已经走国内镜像：Python 用 npmmirror / 华为云，依赖用清华 PyPI，失败自动换阿里云。仍然失败时手动指定：
+
+```bat
+setup_silent.bat -PipMirror https://mirrors.aliyun.com/pypi/simple/
+```
+
+提示 `python_missing` 说明镜像都不可达：先检查网络，或手动装 Python 3.12 后重跑。
+
+**安装需要管理员吗？**
+
+不需要。Python 装到当前用户目录，依赖装在技能的 `.venv` 里，不写系统目录。
 
 **微信 4.1.12 以上能跑吗？**
 

@@ -239,7 +239,7 @@ def main() -> int:
 
         missing = dependency_missing()
         if missing:
-            message = "缺少依赖：" + "、".join(missing) + "；先运行 setup.bat"
+            message = "缺少依赖：" + "、".join(missing) + "；先运行 setup_silent.bat"
             return fail(value, home, status_file, runner_log, "dependency_missing", message, log)
 
         if not wechat_running():
