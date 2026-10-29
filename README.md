@@ -52,7 +52,13 @@ setup_silent.bat
 setup_silent.bat -PipMirror https://mirrors.aliyun.com/pypi/simple/
 ```
 
-装完后编辑 `config\groups.json`，填 7 个群的完整群名，再登录微信。
+装完后编辑 `config\groups.json`：setup 里是 7 个占位群，只保留真实在用的群，其余整条删掉；群名从微信复制，含 emoji 也要完整。`expected_groups` 默认 7，实际不是 7 个就改成实际数（设 0 表示不核对）。
+
+## 升级、重装、换电脑
+
+- 报告、工作台、原始采集在 `C:\Users\<用户>\.rent-lead\wechat-group-daily\`，不在技能目录；替换技能不会丢数据。
+- 真实配置在技能目录的 `config\groups.json`、`config\targets.json`、`config\targets.off`（后两个可能没有）。升级/重装前复制这三个文件，装好后放回。
+- 用 zip 覆盖同一目录即可；不要先删整个技能目录再装，否则群配置和目标会丢。
 
 ## 新版流程：豆包整理，Python 辅助
 
@@ -127,7 +133,7 @@ Python 只做机械统计（`scripts/analytics.py`）：
 .venv\Scripts\python.exe scripts\check_group.py --work "<workdir>" --group g1
 
 # 全部整理完后生成报告
-.venv\Scripts\python.exe scripts\finalize_agent.py --work "<workdir>" --out "<date_dir>\report" --home "<home>"
+.venv\Scripts\python.exe scripts\finalize_agent.py --work "<workdir>" --out "<date_dir>\report"
 
 # 打开报告
 .venv\Scripts\python.exe scripts\open_report.py --date yesterday
@@ -138,6 +144,8 @@ Python 只做机械统计（`scripts/analytics.py`）：
 ```
 
 采集期间不要操作微信。探针会切群、向上滚动，但不会发消息。
+
+`finalize_agent.py` 会从 `workdir` 的 `reports/<日期>/work` 自动推断数据目录，一般不用传 `--home`；只有自定义 `WECHAT_DAILY_HOME` 把工作台放到别处时才需要。
 
 ## 工作台
 
@@ -215,6 +223,14 @@ g1/
 
 检查 `config/targets.json` 是否存在、JSON 是否写对、`month` 是否和统计月份一致。没有配置或月份不一致时，finalize 会自动跳过，不影响日报。
 
+**Excel 被占用或生成失败？**
+
+finalize 会把 Excel 另存成 `群日报_<日期>_<时分秒>.xlsx`，HTML 的“导出 Excel”按钮和 `summary.files.xlsx` 都指向实际文件；关掉 Excel 后重跑会恢复标准文件名。
+
+**状态一直显示 running，或电脑重启后卡住？**
+
+超过 6 小时没有更新会标 `stale_process`。先看 `run.log`；确认微信没有在滚动后运行 `start_daily.py --force`。启动锁和 stale 判断能避免重复探针，但不要连续点多次。
+
 **图片只有占位？**
 
 采集时图片没截到。看 `work/<群>/image_index.json` 的 `saved`；不要把它当成原图。
@@ -247,6 +263,8 @@ setup_silent.bat -PipMirror https://mirrors.aliyun.com/pypi/simple/
 
 ## 隐私
 
-原始聊天、联系方式、图片只留本机，不上传。报告和 Excel 默认不打码，只在本机打开；发给谁由用户决定。GitHub 仓库不含真实群名、联系方式、聊天记录和图片。
+原始聊天、联系方式、图片只留本机，不上传。报告和 Excel **默认明文、不打码**，只在本机打开；发给谁由用户决定。`config/groups.json` 里的 `mask` 只作用于旧版 `report.py`，豆包主流程不使用它；要外发先确认内容。
+
+GitHub 仓库不含真实群名、联系方式、聊天记录和图片。
 
 发布员姓名、月目标同样敏感：真实配置写在 `config/targets.json`，已被 `.gitignore` 排除，不会进入仓库或技能 zip；`config/targets.off` 只在客户本机记录“暂不设置”，同样不上传。

@@ -7,7 +7,6 @@ import re
 from collections import Counter, defaultdict
 from typing import Any
 
-PHONE_RE = re.compile(r"^\+?\d[\d\s-]{6,}$")
 UNKNOWN_PUBLISHER = "未知发布人"
 
 
@@ -15,12 +14,24 @@ def contact_key(contact: dict[str, Any]) -> str:
     value = str(
         contact.get("display") or contact.get("value") or contact.get("masked") or ""
     ).strip()
-    digits = re.sub(r"\D", "", value)
-    if contact.get("type") == "phone" or (PHONE_RE.match(value) and len(digits) >= 10):
+    declared = str(contact.get("type") or "").strip().lower()
+    cleaned = re.sub(
+        r"^(?:手机号?|电话|微信号?|wechat|weixin)\s*[:：]?\s*|^(?:wx|vx|v)\s*[:：]\s*",
+        "",
+        value,
+        flags=re.IGNORECASE,
+    ).strip()
+    digits = re.sub(r"\D", "", cleaned)
+    phone_like = (
+        len(digits) in {10, 11, 12, 13}
+        and not re.search(r"[A-Za-z\u4e00-\u9fff]", cleaned)
+        and bool(re.search(r"\d[\d\s\-()]{7,}\d", cleaned))
+    )
+    if declared == "phone" or (declared != "wechat" and phone_like):
         if len(digits) == 13 and digits.startswith("86"):
             digits = digits[2:]
         return "phone:" + digits
-    return "wechat:" + re.sub(r"\s+", "", value).lower()
+    return "wechat:" + re.sub(r"\s+", "", cleaned).lower()
 
 
 def _lead_time(lead: dict[str, Any]) -> str:

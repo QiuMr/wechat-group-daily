@@ -28,7 +28,11 @@ function Say([string]$Message) {
 
 function Finish($Data, [int]$Code) {
     if ($Data -is [System.Collections.IDictionary]) { $Data['ok'] = ($Code -eq 0) }
-    Say ($Data | ConvertTo-Json -Depth 4 -Compress)
+    $json = $Data | ConvertTo-Json -Depth 4 -Compress
+    # 日志带时间前缀；stdout 最后一行保持纯 JSON，方便豆包直接解析
+    $line = '[{0}] {1}' -f (Get-Date -Format 'HH:mm:ss'), $json
+    try { Add-Content -Path $Log -Value $line -Encoding UTF8 } catch {}
+    Write-Output $json
     exit $Code
 }
 

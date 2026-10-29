@@ -14,6 +14,7 @@ from common import (
     pid_alive,
     read_json,
     resolve_date,
+    stale_status,
     status_path,
     summary_path,
     tail_text,
@@ -124,7 +125,7 @@ def main() -> int:
     if status:
         state = str(status.get("state") or "unknown")
         if state in {"starting", "running"}:
-            if pid_alive(status.get("pid")):
+            if pid_alive(status.get("pid")) and not stale_status(status, status_path(value, home)):
                 return emit(
                     {
                         "state": "running",
@@ -143,6 +144,21 @@ def main() -> int:
                 return emit(summary)
             if work_payload:
                 return emit(work_payload)
+            if pid_alive(status.get("pid")):
+                return emit(
+                    {
+                        "state": "failed",
+                        "date": value.isoformat(),
+                        "date_label": date_label(value),
+                        "error_code": "stale_process",
+                        "error": "采集进程超过 6 小时没有更新，可能已经卡住",
+                        "started_at": status.get("started_at"),
+                        "log": log,
+                        "log_tail": tail_text(Path(log), 15) if log else "",
+                        "next": "先看日志；确认微信没有在滚动后，运行 start_daily.py --force",
+                    },
+                    1,
+                )
             return emit(failed_from(status), 1)
         if state in {"ready_for_review", "reviewing"}:
             if summary.get("state") == "ready":
@@ -172,7 +188,7 @@ def main() -> int:
                         "error_code": "report_missing",
                         "error": "报告记录是 ready，但 report.html 不在了",
                         "report": str(report_file),
-                        "next": "重新运行 start_daily.py --force",
+                        "next": "先运行 finalize_agent.py 重新生成；工作台也缺失时再 start_daily.py --force",
                     },
                     1,
                 )
@@ -191,7 +207,7 @@ def main() -> int:
                     "error_code": "report_missing",
                     "error": "摘要说报告已生成，但 report.html 不在了",
                     "report": str(report_file),
-                    "next": "重新运行 start_daily.py --force",
+                    "next": "先运行 finalize_agent.py 重新生成；工作台也缺失时再 start_daily.py --force",
                 },
                 1,
             )

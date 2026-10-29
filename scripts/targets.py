@@ -137,6 +137,8 @@ def build_target_data(
     day_index = min(report_date.day, target_days)
     time_progress = round(min(day_index / target_days * 100, 100.0), 1)
     remaining_days = max(target_days - day_index, 0)
+    if report_date >= month_end:
+        remaining_days = 0
 
     configured = set(book.names)
     seen_contacts: set[str] = set()
@@ -221,7 +223,7 @@ def build_target_data(
         forecast = round(team_completed / elapsed * target_days)
     else:
         forecast = 0
-    if report_date.day >= target_days:
+    if report_date >= month_end or report_date.day >= target_days:
         forecast = team_completed
     team_status = _status(team_completion, team_pace, team_target)
 
@@ -275,7 +277,13 @@ def build_target_data(
     if unconfigured:
         warnings.append("未设目标的发布员：" + "、".join(item["name"] for item in unconfigured))
 
-    chart_days = max(target_days, report_date.day)
+    if target_days > month_days:
+        warnings.append(
+            f"本月只有 {month_days} 天，目标却按 {target_days} 天配置；"
+            f"月底时间进度最多 {round(month_days * 100 / target_days, 1)}%，"
+            f"建议把 config/targets.json 的 days 改为 {month_days}"
+        )
+    chart_days = min(max(target_days, report_date.day), month_days)
     cumulative_by_day: dict[int, int] = {}
     running = 0
     for row in daily_rows:
@@ -581,10 +589,23 @@ def build_for_date(
     folder = out_dir or (date_dir(report_date, home) / "report")
     folder.mkdir(parents=True, exist_ok=True)
     html_path = folder / "目标进度.html"
-    xlsx_path = folder / data["meta"]["export_name"]
+    xlsx_path: Path | None = folder / data["meta"]["export_name"]
     facts_path = folder / "target_facts.json"
+    output_warnings: list[str] = []
+    try:
+        build_xlsx(data, xlsx_path)
+    except OSError as exc:
+        fallback = folder / f"{xlsx_path.stem}_{datetime.now():%H%M%S}.xlsx"
+        try:
+            build_xlsx(data, fallback)
+            xlsx_path = fallback
+            output_warnings.append(f"目标 Excel 原文件被占用，已另存为 {fallback.name}")
+        except OSError:
+            xlsx_path = None
+            output_warnings.append(f"目标 Excel 生成失败（可能被占用）：{exc}；HTML 已正常生成")
+    if xlsx_path is not None:
+        data["meta"]["export_name"] = xlsx_path.name
     build_html(data, SKILL / "assets" / "target_template.html", html_path)
-    build_xlsx(data, xlsx_path)
     write_json(facts_path, data)
     return {
         "state": "ready",
@@ -592,9 +613,9 @@ def build_for_date(
         "date": data["meta"]["date"],
         "team": data["team"],
         "html": str(html_path.resolve()),
-        "xlsx": str(xlsx_path.resolve()),
+        "xlsx": str(xlsx_path.resolve()) if xlsx_path else "",
         "facts": str(facts_path.resolve()),
-        "warnings": data["warnings"],
+        "warnings": list(dict.fromkeys([*data["warnings"], *output_warnings])),
         "top": data["publishers"][:3],
     }
 

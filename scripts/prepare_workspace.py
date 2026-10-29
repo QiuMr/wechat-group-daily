@@ -66,7 +66,7 @@ def one_line(text: str, limit: int = 300) -> str:
 def load_probe_records(probe: Path) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
     for path in sorted(probe.glob("messages_*.jsonl")):
-        with path.open(encoding="utf-8") as handle:
+        with path.open(encoding="utf-8-sig") as handle:
             for line in handle:
                 if line.strip():
                     records.append(json.loads(line))
@@ -379,6 +379,7 @@ def main() -> int:
     if work.exists() and (work / "index.json").exists() and not args.force:
         print(json.dumps(json.loads((work / "index.json").read_text(encoding="utf-8")), ensure_ascii=False))
         return 0
+    backup: Path | None = None
     if work.exists() and args.force:
         backup = work.parent / f"{work.name}_backup_{datetime.now():%Y%m%d_%H%M%S}"
         work.rename(backup)
@@ -433,6 +434,7 @@ def main() -> int:
         "total_images": sum(item["image_count"] for item in group_indexes),
         "total_slices": sum(len(item["slices"]) for item in group_indexes),
         "unconfigured_groups": sorted(unconfigured),
+        "backup": str(backup) if backup else "",
     }
     write_json(work / "index.json", index)
 
@@ -441,8 +443,8 @@ def main() -> int:
         "",
         "先读每个群的 `digest.md`，再按 `slices/part-XXX.md` 顺序读。",
         "每片读完写 `notes/`，并把线索/扣1/图片判断追加到对应 JSONL。",
-        "全部群完成后，运行 `python scripts/check_group.py --work <这里>`。",
-        "校验通过后运行 `python scripts/finalize_agent.py --work <这里> --out <报告目录>`。",
+        "全部群完成后，在技能根目录运行 `.venv\\Scripts\\python.exe scripts/check_group.py --work <这里>`。",
+        "校验通过后运行 `.venv\\Scripts\\python.exe scripts/finalize_agent.py --work <这里> --out <报告目录>`。",
         "",
         "不要改 `raw/` 和 `slices/`；不要用程序规则替自己判断线索和扣 1。",
     ]

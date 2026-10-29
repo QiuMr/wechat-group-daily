@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import re
 import time
@@ -21,6 +22,8 @@ from datetime import datetime, timedelta
 from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any
+
+from common import normalize_group_name
 
 try:
     from wxauto4 import WeChat
@@ -386,7 +389,9 @@ def assign_times(records: list[dict[str, Any]]) -> None:
 
 def safe_name(raw: str) -> str:
     cleaned = re.sub(r'[\\/:*?"<>|\r\n\t]+', "_", raw)
-    return (cleaned[:40] or "group").strip(" .") or "group"
+    base = (cleaned[:32] or "group").strip(" .") or "group"
+    digest = hashlib.sha1(str(raw).encode("utf-8")).hexdigest()[:6]
+    return f"{base}_{digest}"
 
 
 def scroll_to_bottom(wx: WeChat, *, max_steps: int = 600, label: str = "") -> bool:
@@ -429,6 +434,26 @@ def scroll_to_bottom(wx: WeChat, *, max_steps: int = 600, label: str = "") -> bo
     return False
 
 
+def switch_to_group(wx: WeChat, group: str) -> dict[str, Any]:
+    try:
+        wx.ChatWith(group, exact=True)
+        time.sleep(0.8)
+        info = wx.ChatInfo()
+        actual = str(info.get("chat_name") or "")
+        if actual == group or normalize_group_name(actual) == normalize_group_name(group):
+            return info
+    except Exception:
+        pass
+    # 群名可能带 emoji 变体符/全半角差异；模糊切换后必须再核对群名。
+    wx.ChatWith(group, exact=False)
+    time.sleep(0.8)
+    info = wx.ChatInfo()
+    actual = str(info.get("chat_name") or "")
+    if actual != group and normalize_group_name(actual) != normalize_group_name(group):
+        raise RuntimeError(f"切换后群名不匹配：期望 {group!r}，实际 {actual!r}")
+    return info
+
+
 def scan_group(
     wx: WeChat,
     group: str,
@@ -466,13 +491,8 @@ def scan_group(
     accumulated: list[dict[str, Any]] = []
 
     try:
-        wx.ChatWith(group, exact=True)
-        time.sleep(0.8)
-        chat_info = wx.ChatInfo()
+        chat_info = switch_to_group(wx, group)
         result["chat_info"] = chat_info
-        if str(chat_info.get("chat_name", "") or "") != group:
-            result["error"] = f"切换后群名不匹配：{chat_info.get('chat_name')!r}"
-            return result
 
         # 先确认回到最新位置，避免微信记住上次的滚动位置
         result["bottom_reached"] = scroll_to_bottom(

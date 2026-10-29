@@ -678,8 +678,11 @@ function renderCumulative() {
   chart.innerHTML = chartSvg();
   const team = DATA.team;
   const meta = DATA.meta;
+  const tail = meta.remaining_days > 0
+    ? `当前还差 ${num(team.gap)} 个客户，剩余 ${meta.remaining_days} 天，日均需要 ${num(team.gap / meta.remaining_days)} 个。`
+    : (team.gap > 0 ? `已到月底，还差 ${num(team.gap)} 个客户。` : "已到月底，目标已完成。");
   $("#chart-foot").textContent = team.target
-    ? `实际线截至 ${meta.date_label}；虚线是按 ${meta.target_days} 天均匀的目标节奏。当前还差 ${num(team.gap)} 个客户，剩余 ${meta.remaining_days} 天，日均需要 ${num(meta.remaining_days ? team.gap / meta.remaining_days : team.gap)} 个。`
+    ? `实际线截至 ${meta.date_label}；虚线是按 ${meta.target_days} 天均匀的目标节奏。${tail}`
     : "还没有配置月目标；图上只展示实际累计。";
 }
 

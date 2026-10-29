@@ -8,6 +8,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from datetime import date as date_cls
 from pathlib import Path
 
@@ -24,8 +25,10 @@ from common import (
     pid_alive,
     read_json,
     resolve_date,
+    stale_status,
     status_path,
     summary_path,
+    write_json,
 )
 from run_daily import dependency_missing, wechat_running
 
@@ -71,12 +74,17 @@ def main() -> int:
         )
         return 0
 
-    if current.get("state") in {"starting", "running"} and pid_alive(current.get("pid")):
+    if (
+        current.get("state") in {"starting", "running"}
+        and pid_alive(current.get("pid"))
+        and not stale_status(current, status_file)
+    ):
         emit(
             {
                 "state": "running",
                 "date": value.isoformat(),
                 "pid": current.get("pid"),
+                "started_at": current.get("started_at"),
                 "message": current.get("message") or "采集正在进行",
                 "log": current.get("log"),
             }
@@ -111,15 +119,15 @@ def main() -> int:
     placeholders = [
         item
         for item in config_problems(config)
-        if "占位" in item or "缺少 name" in item
+        if "占位" in item or "缺少 name" in item or "重复" in item
     ]
     if placeholders:
         emit(
             {
                 "state": "failed",
                 "error_code": "config_invalid",
-                "error": "群配置还有占位内容：" + "；".join(placeholders),
-                "hint": "打开 config/groups.json 填完整群名",
+                "error": "群配置有问题：" + "；".join(placeholders),
+                "hint": "打开 config/groups.json：填完整群名，不用的群整条删掉，key/群名不能重复",
             }
         )
         return 1
@@ -146,6 +154,33 @@ def main() -> int:
         return 1
 
     folder.mkdir(parents=True, exist_ok=True)
+    lock_path = folder / ".start.lock"
+    try:
+        try:
+            lock_fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError:
+            try:
+                lock_age = time.time() - lock_path.stat().st_mtime
+            except OSError:
+                lock_age = 0
+            if lock_age < 120:
+                emit(
+                    {
+                        "state": "starting",
+                        "date": value.isoformat(),
+                        "message": "采集正在启动，稍后再查状态",
+                        "next": "等 1 分钟后运行 status.py；不要重复启动",
+                    }
+                )
+                return 0
+            lock_path.unlink(missing_ok=True)
+            lock_fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        os.write(lock_fd, str(os.getpid()).encode("ascii"))
+        os.close(lock_fd)
+    except OSError as exc:
+        emit({"state": "failed", "error_code": "launch_failed", "error": f"无法创建启动锁：{exc}"})
+        return 1
+
     bootstrap = folder / "bootstrap.log"
     command = [
         sys.executable,
@@ -182,22 +217,43 @@ def main() -> int:
         )
     except OSError as exc:
         handle.close()
+        lock_path.unlink(missing_ok=True)
         emit({"state": "failed", "error_code": "launch_failed", "error": f"启动失败：{exc}"})
         return 1
     handle.close()
 
+    started_at = now_text()
     payload = {
         "state": "starting",
         "date": value.isoformat(),
         "date_label": date_label(value),
         "pid": process.pid,
-        "started_at": now_text(),
+        "started_at": started_at,
         "stage": "starting",
         "message": "已开始后台采集，约 30–90 分钟；期间不要操作微信。",
         "eta_minutes": "30-90",
         "log": str(log_path(value, home)),
         "bootstrap_log": str(bootstrap),
     }
+    try:
+        write_json(
+            status_file,
+            {
+                "state": "starting",
+                "date": value.isoformat(),
+                "stage": "starting",
+                "pid": process.pid,
+                "started_at": started_at,
+                "log": str(log_path(value, home)),
+                "message": "正在启动后台采集",
+            },
+        )
+    except OSError as exc:
+        process.terminate()
+        lock_path.unlink(missing_ok=True)
+        emit({"state": "failed", "error_code": "launch_failed", "error": f"写状态失败：{exc}"})
+        return 1
+    lock_path.unlink(missing_ok=True)
     emit(payload)
     return 0
 

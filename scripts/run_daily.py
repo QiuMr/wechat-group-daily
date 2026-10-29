@@ -231,7 +231,11 @@ def main() -> int:
         groups = config_groups(config)
         if not groups:
             return fail(value, home, status_file, runner_log, "config_invalid", "还没有配置群", log)
-        placeholders = [item for item in problems if "占位" in item or "缺少 name" in item]
+        placeholders = [
+            item
+            for item in problems
+            if "占位" in item or "缺少 name" in item or "重复" in item
+        ]
         if placeholders:
             return fail(
                 value,
@@ -239,7 +243,7 @@ def main() -> int:
                 status_file,
                 runner_log,
                 "config_invalid",
-                "群配置还有占位内容：" + "；".join(placeholders),
+                "群配置有问题：" + "；".join(placeholders),
                 log,
             )
         warnings = list(problems)

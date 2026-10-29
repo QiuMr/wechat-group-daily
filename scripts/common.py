@@ -5,8 +5,10 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import tempfile
+import unicodedata
 from datetime import date as date_cls, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -61,6 +63,34 @@ def now_text() -> str:
     return datetime.now().isoformat(timespec="seconds")
 
 
+def normalize_group_name(value: Any) -> str:
+    """群名比较时忽略 emoji 变体符、零宽字符、空白和全半角差异。"""
+    text = unicodedata.normalize("NFKC", str(value or ""))
+    text = text.replace("\ufe0f", "").replace("\u200b", "").replace("🍠", "")
+    return re.sub(r"\s+", "", text).strip().lower()
+
+
+def stale_status(status: dict[str, Any], path: Path | None = None, hours: float = 6.0) -> bool:
+    """判断 running 状态是否已超过合理时长；Windows 重启后 pid 可能被复用。"""
+    raw = status.get("started_at") or status.get("updated_at")
+    started: datetime | None = None
+    if raw:
+        try:
+            started = datetime.fromisoformat(str(raw))
+        except ValueError:
+            started = None
+    if started is None and path is not None:
+        try:
+            started = datetime.fromtimestamp(path.stat().st_mtime)
+        except OSError:
+            started = None
+    if started is None:
+        return True
+    if started.tzinfo is not None:
+        started = started.astimezone().replace(tzinfo=None)
+    return datetime.now() - started > timedelta(hours=hours)
+
+
 def date_dir(value: date_cls, home: Path | None = None) -> Path:
     return (home or data_home()) / "reports" / value.isoformat()
 
@@ -79,7 +109,8 @@ def log_path(value: date_cls, home: Path | None = None) -> Path:
 
 def read_json(path: Path, default: Any = None) -> Any:
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        # 豆包/客户常用记事本编辑配置，Windows 记事本可能带 BOM
+        return json.loads(path.read_text(encoding="utf-8-sig"))
     except (OSError, ValueError):
         return default
 
@@ -123,12 +154,26 @@ def config_problems(config: dict[str, Any]) -> list[str]:
     groups = config_groups(config)
     if not groups:
         problems.append("config/groups.json 还没有配置群")
+    seen_keys: dict[str, int] = {}
+    seen_names: dict[str, int] = {}
     for index, group in enumerate(groups, start=1):
         name = str(group.get("name") or "").strip()
+        key = str(group.get("key") or "").strip()
         if not name:
             problems.append(f"第 {index} 个群缺少 name")
         if "请替换" in name:
             problems.append(f"第 {index} 个群还是占位群名")
+        if key:
+            if key in seen_keys:
+                problems.append(f"第 {index} 个群的 key「{key}」和第 {seen_keys[key]} 个重复")
+            else:
+                seen_keys[key] = index
+        if name:
+            normalized = normalize_group_name(name)
+            if normalized in seen_names:
+                problems.append(f"第 {index} 个群的群名和第 {seen_names[normalized]} 个重复")
+            else:
+                seen_names[normalized] = index
         publishers = list(group.get("publishers") or [])
         if not publishers:
             problems.append(f"{group.get('short') or name or index} 没有配置发布人")

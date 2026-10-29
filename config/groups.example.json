@@ -1,6 +1,5 @@
 {
   "batch_minutes": 5,
-  "mask": false,
   "expected_groups": 7,
   "probe": {
     "max_rounds": 2000,

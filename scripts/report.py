@@ -94,7 +94,7 @@ def resolve_date(raw: str, now: datetime | None = None) -> date_cls:
 def load_messages(source: Path) -> dict[str, list[dict[str, Any]]]:
     messages: dict[str, list[dict[str, Any]]] = {}
     for path in source.glob("messages_*.jsonl"):
-        with path.open(encoding="utf-8") as handle:
+        with path.open(encoding="utf-8-sig") as handle:
             for line in handle:
                 if not line.strip():
                     continue

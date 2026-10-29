@@ -44,6 +44,14 @@ def parse_dt(value: str | None) -> datetime | None:
         return None
 
 
+def first_dt(*values: Any) -> datetime | None:
+    for value in values:
+        parsed = parse_dt(str(value or ""))
+        if parsed is not None:
+            return parsed
+    return None
+
+
 def hm(value: datetime | None) -> str:
     return value.strftime("%H:%M") if value else "-"
 
@@ -103,7 +111,7 @@ def normalize_followups(value: Any) -> list[dict[str, Any]]:
 
 def claim_view(claim: dict[str, Any], raw_by_uid: dict[str, dict[str, Any]]) -> dict[str, Any]:
     raw = raw_by_uid.get(str(claim.get("message_uid") or ""), {})
-    value = parse_dt(str(claim.get("time") or raw.get("resolved") or ""))
+    value = first_dt(claim.get("time"), raw.get("resolved"))
     return {
         "claim_id": str(claim.get("claim_id") or ""),
         "message_uid": str(claim.get("message_uid") or ""),
@@ -138,7 +146,7 @@ def build_lead(
         return None
     source_rows.sort(key=lambda row: int(row.get("seq") or 0))
     first = source_rows[0]
-    value = parse_dt(str(agent.get("time") or first.get("resolved") or ""))
+    value = first_dt(agent.get("time"), first.get("resolved"))
     contact = agent.get("contact") if isinstance(agent.get("contact"), dict) else {}
     contact_value = str(contact.get("value") or "").strip()
     if not contact_value:
@@ -923,8 +931,20 @@ def main() -> int:
     }
 
     out.mkdir(parents=True, exist_ok=True)
+    output_warnings: list[str] = []
+    xlsx_path = out / meta["export_name"]
+    try:
+        render_kit.build_xlsx(data, xlsx_path)
+    except OSError as exc:
+        fallback = out / f"{xlsx_path.stem}_{datetime.now():%H%M%S}.xlsx"
+        try:
+            render_kit.build_xlsx(data, fallback)
+            xlsx_path = fallback
+            output_warnings.append(f"Excel 原文件被占用，已另存为 {fallback.name}")
+        except OSError:
+            output_warnings.append(f"Excel 生成失败（可能被占用）：{exc}；HTML 和 facts 已正常生成")
+    data["meta"]["export_name"] = xlsx_path.name
     (out / "facts.json").write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-    render_kit.build_xlsx(data, out / meta["export_name"])
     render_kit.build_html(data, render_kit.DEFAULT_TEMPLATE, out / "report.html")
     try:
         target_result = build_for_date(
@@ -934,18 +954,20 @@ def main() -> int:
             out_dir=out,
             current_facts=out / "facts.json",
         )
-    except (OSError, ValueError) as exc:
-        target_result = {"state": "failed", "error": str(exc)}
+    except Exception as exc:  # 目标看板是可选产出，不能拖垮日报
+        target_result = {"state": "failed", "error": f"{type(exc).__name__}: {exc}"}
 
     paths = {
         "report": out / "report.html",
-        "xlsx": out / meta["export_name"],
+        "xlsx": xlsx_path,
         "facts": out / "facts.json",
         "summary": summary_path(date_value, home),
         "log": log_path(date_value, home),
         "probe": Path(index.get("probe") or ""),
     }
     summary = build_summary(data, date_value, paths, warnings)
+    all_warnings = list(dict.fromkeys([*warnings, *output_warnings]))
+    summary["warnings"] = all_warnings
     summary["targets"] = target_result
     if target_result.get("html"):
         summary["files"]["targets"] = target_result["html"]
@@ -967,7 +989,7 @@ def main() -> int:
             "targets_xlsx": target_result.get("xlsx", ""),
             "summary": str(paths["summary"]),
             "log": str(paths["log"]),
-            "warnings": warnings,
+            "warnings": all_warnings,
         },
     )
     index["status"] = "ready"

@@ -2,7 +2,7 @@
 name: wechat-group-daily
 description: 回捞指定微信群某一天的聊天记录，由豆包逐条读消息、逐张看图，整理成“一条联系方式一条线索”的群日报，并自动统计去重客户、丢客员和客服领取，生成一页式 HTML 和 Excel；配置发布员月目标后，还会自动生成月度目标进度看板。当用户说“跑一下昨天的群日报”“看看几个群谁领了线索”“看看谁丢客多、谁领得多”“这个月发布员完成多少”“配置发布员目标”“打开群日报或目标看板”“安装或更新这个群日报技能”时使用。只读采集，不发送任何消息。
 metadata:
-  version: "0.3.1"
+  version: "0.3.2"
   display_name: "微信群日报"
   author: "rent-lead-hub"
 ---
@@ -19,6 +19,12 @@ metadata:
 4. 如果配置了 `config/targets.json`，再按发布员月目标生成 `目标进度.html` 和 `目标进度_YYYY-MM.xlsx`。
 
 只统计群里看得见的内容。不发送消息、不加好友、不改群。
+
+## 六步流程（先看这张卡）
+
+`status.py` 查状态 → `start_daily.py` 采集 → 豆包逐片写 `leads/claims/images` → `check_group.py` 校验 → `finalize_agent.py` 生成报告 → `open_report.py` 打开。
+
+三条红线：**只读不改群；一个联系方式一条线索；不编证据、不承诺结果。**
 
 **必须装在登录微信的那台 Windows 电脑上。** 豆包要用工作模式在本机运行，云端沙盒看不到微信窗口。采集电脑要在目标日期之前就登录微信，并保持在线。
 
@@ -57,12 +63,17 @@ metadata:
    - 本机没有 Python 3.12 时，用国内镜像安装（npmmirror / 华为云，校验签名）；
    - 用清华 PyPI 源安装 `wxauto4==41.1.7`、`openpyxl`，失败自动换阿里云；
    - 第一次运行时创建 `config\groups.json`。
-   读它最后一行 JSON：`ok:true` 才继续；`ok:false` 按 `error_code` 处理（见“失败处理”）。
-4. 填 `config\groups.json` 的完整群名；没有就让客户提供，或先只配已知的群。
+   读 stdout 最后一行 JSON（现在没有时间前缀）：`ok:true` 才继续；`ok:false` 按 `error_code` 处理（见“失败处理”）。看 `wechat` 字段：如果是版本号，必须是 `4.1.8.x`；`4.1.12+` 免费版挂不上，先停下让客户降级，不要开始回捞。如果显示“未运行”，先登录微信再复查，不要据此判断安装失败。
+4. 填 `config\groups.json`：
+   - setup 生成的是 7 个占位群；**只保留客户真实在用的群，其余整条删掉**，不能留“请替换成…”。只配 2 个群也能跑。
+   - 群名从微信里复制完整名称（含 emoji、空格、括号）；不要手打。
+   - `expected_groups` 默认 7；如果实际不是 7 个，改成实际数；设 0 表示不核对数量。
 5. 登录微信，主窗口不要最小化。
 6. 按下面的标准流程跑。
 
 安装期间不要让客户操作电脑；杀毒软件弹窗让客户点“允许”。客户机必须能上网。
+
+**升级/重装前**先备份 `config/groups.json`、`config/targets.json`、`config/targets.off`；重装后放回。报告、工作台、原始采集都在 `~/.rent-lead/wechat-group-daily`，不在技能目录，替换技能不会丢。不要为了升级删掉整个技能目录。
 
 所有命令都在技能根目录执行，统一用 `.venv\Scripts\python.exe`；不要用系统 `python`，客户机上可能没有或版本不对。
 
@@ -113,7 +124,7 @@ metadata:
 - 每个群的 `index.json`：切片清单；
 - 每个群的 `image_index.json`：所有图片的 uid、绝对路径、前后文。
 
-**一个群一个群做，不要一次把 7 个群全塞进上下文。** 工作台文件就是你的外部记忆。
+**一个群一个群做，不要一次把所有群全塞进上下文。** 工作台文件就是你的外部记忆。
 
 #### 3.2 按切片顺序读
 
@@ -256,7 +267,7 @@ metadata:
 ### 第 5 步：生成报告
 
 ```bash
-.venv\Scripts\python.exe scripts/finalize_agent.py --work "<workdir>" --out "<date_dir>/report" --home "<home>"
+.venv\Scripts\python.exe scripts/finalize_agent.py --work "<workdir>" --out "<date_dir>/report"
 ```
 
 `date_dir` 就是 `workdir` 的上一级，例如：
@@ -265,6 +276,8 @@ metadata:
 ...\reports\2026-10-28\work
 ...\reports\2026-10-28\report
 ```
+
+**不要给 `finalize_agent.py` 传 `--home`。** 它会从 `workdir` 的 `reports/<日期>/work` 结构自动推断数据目录；只有用 `WECHAT_DAILY_HOME` 把 work 放到别处时才需要传。
 
 它会：
 
@@ -325,7 +338,7 @@ metadata:
 
 用户说“要”，按这个顺序引导，不要一次问一大堆：
 
-1. 先确认发布员名单。可以从最近一份 `facts.json` 的 `publishers` 里取常用名，问“是这几位吗？有没有别名/漏掉的？”
+1. 先确认发布员名单。可以从最近一份 `facts.json` 的 `publishers` 里取常用名，问“是这几位吗？有没有别名/漏掉的？”；没有 facts 就按用户报的名单。
 2. 再问每个人的月目标客户数。**不要猜，不要拿工资、领取量或主管日报的开单量代替目标数。**
 3. 确认按 30 天算（默认，不用改 `days`）；如果是 2 月等短月要按自然月，再改 `days`。
 4. 把 `config/targets.example.json` 复制成 `config/targets.json`，按用户确认的名单、别名、月目标写进去；不要留示例名字。
@@ -413,12 +426,14 @@ metadata:
 | `dependency_missing` | 这台电脑还没装采集依赖 | 运行 `setup_silent.bat` |
 | `wechat_not_running` | 微信没开或没登录 | 登录微信，主窗口不要最小化 |
 | `wechat_not_ready` | 微信挂不上 | 确认 4.1.8.x、已登录、窗口没最小化 |
-| `config_invalid` | 群配置没填好 | 补 `config/groups.json` 的完整群名 |
+| `config_invalid` | 群配置没填好 | 补 `config/groups.json` 的完整群名；不用的群整条删掉；key/群名不能重复 |
 | `probe_failed` | 采集中断了 | 看 `run.log` 最后 15 行 |
+| `launch_failed` | 后台采集进程没启动起来 | 看 `bootstrap.log`；确认磁盘可写、权限正常后重跑 |
 | `prepare_failed` | 工作台没生成 | 看 `run.log`，常见是图片路径或磁盘权限 |
 | `agent_output_invalid` | 豆包写的 JSONL 有问题 | 按 `check_group.py` 的 errors 修 |
 | `workspace_incomplete` | 还有切片没整理完 | 继续读，或用 `mark_slice.py` 补标记 |
 | `process_exited` | 后台进程退出 | 重新跑；连续失败看日志 |
+| `stale_process` | 采集超过 6 小时没更新，像卡住了 | 看 `run.log`；确认微信没在滚动后运行 `start_daily.py --force` |
 | `report_missing` | 报告文件不见了 | `start_daily.py --force` 重跑 |
 
 采集有缺口时状态仍是 `ready`，但 `partial=true`、`warnings` 会写原因。要主动说明，不要只报喜。
@@ -428,7 +443,8 @@ metadata:
 - **“只覆盖 19:15 以后”**：这台电脑的微信是那天 19:15 才登录的，登录前的群历史本机没有。要完整一天，采集电脑必须提前登录并一直在线。
 - **“只覆盖今天上午以后”**：这个群窗口小、消息密，滚动到单群上限（默认 2000 轮）还没翻到昨天 00:00。把 `config/groups.json` 的 `probe.max_rounds` 调大（如 4000）再跑一次；仍到不了才是本机缓存或入群边界。
 - **“N 处低置信”**：向上滚动合并时有两段接不上，可能漏了少量消息；关键结论点“查看原文”核对。
-- **“当前只配置 2 个群，预期 7 个”**：还有群没加进配置，统计不全。
+- **“当前只配置 2 个群，预期 7 个”**：还有群没加进配置，统计不全；如果确实只有 2 个群，把 `expected_groups` 改成 2 或 0。
+- **“切换后群名不匹配”**：配置里的群名和微信里的不一致；让客户从微信复制完整群名（含 emoji/空格/括号）。脚本会忽略 emoji 变体符和空白差异，但不会猜多一个字。
 - **“图片未落盘”**：采集时图片没截到；报告只能显示占位，不要说看到了原图。
 - **“N 条线索置信度低”**：豆包自己标了不确定；点开原文人工确认。
 - **目标看板“缺日报：10-15”**：那天没有生成日报，看板不按 0 计，月累计会偏低；补跑那天的日报后重算目标。
@@ -457,7 +473,7 @@ setup_silent.bat
 .venv\Scripts\python.exe scripts/check_group.py --work "<workdir>"
 
 # 生成报告
-.venv\Scripts\python.exe scripts/finalize_agent.py --work "<workdir>" --out "<date_dir>/report" --home "<home>"
+.venv\Scripts\python.exe scripts/finalize_agent.py --work "<workdir>" --out "<date_dir>/report"
 
 # 打开报告
 .venv\Scripts\python.exe scripts/open_report.py --date yesterday
@@ -513,6 +529,6 @@ reports/2026-10-28/
 7. **图片必须逐张看**：不能把图片只当附件；图里的联系方式要读出来。
 8. **不编证据**：`leads/claims/images` 只写 `message_uid`，原文由程序回填；不要自己生成大段聊天。
 9. **不承诺结果**：只负责整理和展示，不说“已经加微信 / 已经联系 / 已经安排看房”。
-10. **隐私**：原始聊天、联系方式、图片只留本机；不要上传公网、云盘、公开页面或外部聊天。发布员姓名、月目标同样只留本机，`config/targets.json` 不提交、不外发。
+10. **隐私**：原始聊天、联系方式、图片只留本机；不要上传公网、云盘、公开页面或外部聊天。报告和 Excel 默认明文不打码，转发前要提醒用户。发布员姓名、月目标同样只留本机，`config/targets.json` 不提交、不外发。
 11. **不删原始数据**：`probe/`、`work/raw/`、`slices/` 都保留，方便复核。
 12. **目标完成数不是实际工作量**：它只统计发布员发布的去重客户；领取量、实际加微、拉群、带看、开单是另一套口径，不要把目标完成率说成实际加客数。

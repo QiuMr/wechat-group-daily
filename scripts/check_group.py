@@ -16,7 +16,7 @@ def load_jsonl(path: Path) -> tuple[list[dict[str, Any]], list[str]]:
     errors: list[str] = []
     if not path.exists():
         return rows, [f"{path.name} 不存在"]
-    with path.open(encoding="utf-8") as handle:
+    with path.open(encoding="utf-8-sig") as handle:
         for line_no, line in enumerate(handle, start=1):
             text = line.strip()
             if not text:
