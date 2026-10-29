@@ -3,7 +3,8 @@
 __pycache__/
 logs/
 config/groups.json
+config/targets.json
+config/targets.off
 .tmp*/
 .verify*/
 wxauto_logs/
-config/targets.json

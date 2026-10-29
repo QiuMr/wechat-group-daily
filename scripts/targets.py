@@ -551,7 +551,15 @@ def build_for_date(
 ) -> dict[str, Any]:
     config = config_path or (SKILL / "config" / "targets.json")
     if not config.exists():
-        return {"state": "skipped", "reason": "no_targets_config", "config": str(config)}
+        declined = (config.parent / "targets.off").exists()
+        return {
+            "state": "skipped",
+            "reason": "no_targets_config",
+            "config": str(config),
+            "message": "还没有配置发布员月目标",
+            "onboarding": not declined,
+            "next": "日报已完成；用户没关掉引导时，可以问一次要不要设置月目标；设置后重算看板",
+        }
     book = load_targets(config)
     if book.month and book.month != report_date.strftime("%Y-%m"):
         return {
@@ -559,6 +567,9 @@ def build_for_date(
             "reason": "month_mismatch",
             "config_month": book.month,
             "report_month": report_date.strftime("%Y-%m"),
+            "message": "目标配置的月份和本次统计月份不一致",
+            "onboarding": False,
+            "next": "确认本月目标后更新 config/targets.json 的 month，或删除 month 字段",
         }
     data = build_target_data(
         report_date.strftime("%Y-%m"),

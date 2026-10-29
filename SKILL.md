@@ -2,7 +2,7 @@
 name: wechat-group-daily
 description: 回捞指定微信群某一天的聊天记录，由豆包逐条读消息、逐张看图，整理成“一条联系方式一条线索”的群日报，并自动统计去重客户、丢客员和客服领取，生成一页式 HTML 和 Excel；配置发布员月目标后，还会自动生成月度目标进度看板。当用户说“跑一下昨天的群日报”“看看几个群谁领了线索”“看看谁丢客多、谁领得多”“这个月发布员完成多少”“配置发布员目标”“打开群日报或目标看板”“安装或更新这个群日报技能”时使用。只读采集，不发送任何消息。
 metadata:
-  version: "0.3.0"
+  version: "0.3.1"
   display_name: "微信群日报"
   author: "rent-lead-hub"
 ---
@@ -287,7 +287,7 @@ metadata:
 .venv\Scripts\python.exe scripts/open_report.py --date yesterday
 ```
 
-先读 `summary.json` 的 `brief_lines`，给用户 4–5 行结论，再打开报告。如果 `summary.json` 里有 `targets.state=ready`，先用一句话带上本月目标进度，再问要不要打开目标看板。
+先读 `summary.json` 的 `brief_lines`，给用户 4–5 行结论，再打开报告。如果 `targets.state=ready`，先用一句话带上本月目标进度，再问要不要打开目标看板；如果是 `targets.state=skipped` 且 `onboarding=true`，按下面“第一次怎么引导”轻问一次要不要设置目标。
 
 用户追问细节时：
 
@@ -315,11 +315,28 @@ metadata:
 
 > 目标里的“完成”= **发布员发布的去重客户数**，不是领取量，也不是实际加微/拉群/开单。实际工作量仍以主管日报和核对群截图为准，回答时不要混在一起。
 
-#### 什么时候有
+#### 什么时候有 / 第一次怎么引导
 
-只有 `config/targets.json` 存在时才生成。没有这个文件，`finalize_agent.py` 会返回 `targets.state=skipped`，日报照常出，不要主动打扰用户。
+只有 `config/targets.json` 存在时才生成看板。没有这个文件，`finalize_agent.py` 会返回 `targets.state=skipped`，日报照常出。
 
-真实姓名和月目标是本机敏感配置，`config/targets.json` 已被 `.gitignore` 排除；不要提交、上传或写进公开文档。
+**第一次没有配置时，要轻问一次，不要默默跳过。** 日报讲完后，如果 `summary.targets` 是 `state=skipped`、`reason=no_targets_config`、`onboarding=true`，补一句：
+
+> 日报好了。要不要顺手给发布员设个月目标？设了以后每天会自动出一张目标进度看板，能看到今天、月累计、完成率和还差多少。要现在设吗？
+
+用户说“要”，按这个顺序引导，不要一次问一大堆：
+
+1. 先确认发布员名单。可以从最近一份 `facts.json` 的 `publishers` 里取常用名，问“是这几位吗？有没有别名/漏掉的？”
+2. 再问每个人的月目标客户数。**不要猜，不要拿工资、领取量或主管日报的开单量代替目标数。**
+3. 确认按 30 天算（默认，不用改 `days`）；如果是 2 月等短月要按自然月，再改 `days`。
+4. 把 `config/targets.example.json` 复制成 `config/targets.json`，按用户确认的名单、别名、月目标写进去；不要留示例名字。
+5. 运行 `targets.py --date yesterday` 重算，再 `open_report.py --date yesterday --targets` 打开；让用户核对名字和数字，发现对不上就改 `aliases`。
+6. 如果这次日报已经打开，补一句“目标看板也生成好了”，不要重复讲一遍日报。
+
+用户说“不用 / 以后再说”，就在本机写一个 `config/targets.off`（内容写日期和“用户暂不设置目标”即可），以后不再主动问；用户哪天主动说“设置发布员目标”，删掉 `config/targets.off` 再按上面流程做。不要为了“先占位”写一个空目标或 0 目标。
+
+如果 `reason=month_mismatch`，不要拿上个月的目标套本月；告诉用户“目标配置还是 X 月的，要不要按本月更新？”，用户确认后改 `month` 或删掉 `month` 字段，再重算。
+
+真实姓名和月目标是本机敏感配置，`config/targets.json`、`config/targets.off` 已被 `.gitignore` 排除；不要提交、上传或写进公开文档。
 
 #### 怎么配置
 
