@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 import report as render_kit
+from analytics import build_analytics
 from check_group import check_group, load_jsonl
 from common import (
     SKILL,
@@ -413,16 +414,20 @@ def build_attention(
     orphans: list[dict[str, Any]],
     issue_groups: list[dict[str, Any]],
     low_leads: list[dict[str, Any]],
+    customers: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     attention = []
-    unclaimed = [lead for lead in leads if lead["status"] == "unclaimed"]
+    if customers is not None:
+        unclaimed = [customer for customer in customers if customer["status"] == "unclaimed"]
+    else:
+        unclaimed = [lead for lead in leads if lead["status"] == "unclaimed"]
     if unclaimed:
-        groups = {lead["group_label"] for lead in unclaimed}
-        times = "、".join(lead["time_label"] for lead in unclaimed[:3])
+        groups = {item["group_label"] for item in unclaimed}
+        times = "、".join(item["time_label"] for item in unclaimed[:3])
         if len(groups) == 1:
-            title = f"{unclaimed[0]['group_short']} · {len(unclaimed)} 条线索没人扣 1"
+            title = f"{unclaimed[0]['group_short']} · {len(unclaimed)} 个客户没人领"
         else:
-            title = f"{len(groups)} 个群 · {len(unclaimed)} 条线索没人扣 1"
+            title = f"{len(groups)} 个群 · {len(unclaimed)} 个客户没人领"
         attention.append(
             {
                 "kind": "unclaimed",
@@ -480,6 +485,7 @@ def build_insights(
     leads: list[dict[str, Any]],
     orphans: list[dict[str, Any]],
     issue_groups: list[dict[str, Any]],
+    analytics: dict[str, Any] | None = None,
 ) -> list[str]:
     counter = Counter()
     for lead in leads:
@@ -487,18 +493,78 @@ def build_insights(
             counter[claimer["name"]] += 1
     for orphan in orphans:
         counter[orphan["sender"]] += 1
-    if counter:
+    if analytics:
+        unique = analytics["unique_customers"]
+        claimed = analytics["claimed_customers"]
+        unclaimed = analytics["unclaimed_customers"]
+        relations = analytics["claim_relations"]
+        messages = analytics.get("claim_messages", relations)
+        multi = analytics["multi_claimer_customers"]
+        insights = [
+            f"去重后 {unique} 个客户：{claimed} 个有人领，{unclaimed} 个没人领；"
+            f"共 {relations} 次领取（{messages} 条领取消息）"
+            + (f"，{multi} 个客户被 2 人以上领取。" if multi else "。")
+        ]
+    elif counter:
         top = counter.most_common(3)
         insights = [
             "领取最多的是 " + "、".join(f"{name} {count} 个客户" for name, count in top) + "。"
         ]
     else:
         insights = ["这一天还没有人领取。"]
-    unclaimed = [lead for lead in leads if lead["status"] == "unclaimed"]
-    if unclaimed:
-        insights.append(f"{len(unclaimed)} 条线索没人扣 1；可能私聊接了，或连续丢客只回了一个“1”。")
-    else:
-        insights.append("所有线索在群里都有人领取。")
+
+    top_claimer_name = ""
+    top_preference_publisher = ""
+    if analytics and analytics.get("claimers") and analytics["claim_relations"]:
+        top_claimer = analytics["claimers"][0]
+        top_claimer_name = top_claimer["name"]
+        preference = top_claimer.get("preference")
+        line = f"领得最多的是 {top_claimer['name']}（{top_claimer['customers']} 个客户"
+        if top_claimer.get("claim_share"):
+            line += f"，占全部领取 {top_claimer['claim_share']}%"
+        line += "）"
+        if preference and preference["count"] >= 2:
+            top_preference_publisher = preference["publisher"]
+            line += (
+                f"；其中 {preference['count']} 个来自 {preference['publisher']}"
+                f"（占其领取 {preference['share']}%）。"
+            )
+        else:
+            line += "。"
+        insights.append(line)
+    if analytics:
+        strong = [
+            item for item in analytics.get("affinities") or []
+            if item["customers"] >= 2 and item["share_of_claimer"] >= 50
+        ]
+        if strong:
+            best = max(strong, key=lambda item: (item["share_of_claimer"], item["customers"]))
+            if (best["claimer"], best["publisher"]) != (top_claimer_name, top_preference_publisher):
+                insights.append(
+                    f"偏好最明显的是 {best['claimer']}：领了 {best['publisher']} 的 "
+                    f"{best['customers']} 个客户，占其领取 {best['share_of_claimer']}%。"
+                )
+    if analytics and analytics.get("publishers"):
+        top_publisher = analytics["publishers"][0]
+        insights.append(
+            f"丢客最多的是 {top_publisher['name']}（{top_publisher['customers']} 个客户），"
+            f"其中 {top_publisher['claimed']} 个被领取（{top_publisher['claim_share']}%）。"
+        )
+    if analytics and analytics.get("duplicate_posts"):
+        insights.append(
+            f"有 {analytics['duplicate_posts']} 次重复发布，已合并到同一客户，按首次发布人统计。"
+        )
+
+    unclaimed_leads = [lead for lead in leads if lead["status"] == "unclaimed"]
+    if not analytics:
+        if unclaimed_leads:
+            insights.append(f"{len(unclaimed_leads)} 条线索没人扣 1；可能私聊接了，或连续丢客只回了一个“1”。")
+        else:
+            insights.append("所有线索在群里都有人领取。")
+    elif analytics["unclaimed_customers"]:
+        insights.append(
+            f"{analytics['unclaimed_customers']} 个客户群里没人领；可能私聊接了，或连续丢客只回了一个“1”。"
+        )
     image_leads = [lead for lead in leads if lead.get("source_type") == "image"]
     if image_leads:
         insights.append(f"其中 {len(image_leads)} 条线索来自图片，豆包已经逐张看过。")
@@ -550,6 +616,18 @@ def build_notes(
         {
             "label": "批量领取",
             "value": "同一个人连续发 2–4 条线索算一批；后面一个“1”默认领整批，同批每条都记领取；两个人各扣 1，两个人都记到整批；只有明确“只要一个/引用某条”才只领一条。",
+        },
+        {
+            "label": "客户去重",
+            "value": "按联系方式去重：同一个号码或微信号多次出现只算一个客户，归到最早一次发布；其他发布记“重复发布”，不重复计数。",
+        },
+        {
+            "label": "领取量口径",
+            "value": "一个客户被一个客服领取算 1 次；同一个客户被两个客服领取算 2 次；一个人扣一个“1”领走一批 3 个客户，算 3 次领取、1 条领取消息。",
+        },
+        {
+            "label": "丢客与偏好",
+            "value": "谁发线索谁就是丢客员；客服领取占比按“领取关系”算；“B 常领 C 的客户”看 B 领取的客户里有多少来自 C。",
         },
         {
             "label": "图片口径",
@@ -634,6 +712,7 @@ def main() -> int:
     all_leads: list[dict[str, Any]] = []
     all_orphans: list[dict[str, Any]] = []
     all_claims: list[dict[str, Any]] = []
+    claims_by_lead: dict[tuple[str, str], list[dict[str, Any]]] = {}
     group_data: list[dict[str, Any]] = []
     raw_by_group: dict[str, list[dict[str, Any]]] = {}
     for group in groups:
@@ -652,6 +731,7 @@ def main() -> int:
         for claim in claims:
             if claim["is_claim"] and claim["target_lead_id"]:
                 claims_by_target.setdefault(claim["target_lead_id"], []).append(claim)
+                claims_by_lead.setdefault((key, claim["target_lead_id"]), []).append(claim)
         image_links: dict[str, list[str]] = {}
         for image in agent_images:
             for lead_id in image.get("lead_ids") or []:
@@ -696,15 +776,27 @@ def main() -> int:
     for index_no, orphan in enumerate(all_orphans, start=1):
         orphan["id"] = f"X{index_no:02d}"
 
+    orphan_claimers = Counter(orphan["sender"] for orphan in all_orphans if orphan["sender"])
+    analytics = build_analytics(all_leads, claims_by_lead, orphan_claimers)
+    customers = analytics["customers"]
+    publishers = analytics["publishers"]
+    claimers = analytics["claimers"]
+
     issue_groups = [group for group in group_data if group["status"] != "complete"]
     low_leads = [
         lead for lead in all_leads
         if lead.get("agent_confidence") is not None and lead["agent_confidence"] < low_confidence
     ]
-    unclaimed = [lead for lead in all_leads if lead["status"] == "unclaimed"]
     claim_rows = [claim for claim in all_claims if claim["is_claim"]]
     claims_count = len(claim_rows)
     claim_message_count = len({claim["message_uid"] for claim in claim_rows})
+    analytics["claim_messages"] = claim_message_count
+    messages_by_claimer: dict[str, set[str]] = {}
+    for claim in claim_rows:
+        messages_by_claimer.setdefault(claim["sender"], set()).add(claim["message_uid"])
+    for claimer in claimers:
+        if claimer["name"] in messages_by_claimer:
+            claimer["claim_messages"] = len(messages_by_claimer[claimer["name"]])
     review_items = len(all_orphans) + len(issue_groups) + len(low_leads)
     expected = expected_groups(config)
     if expected and len(groups) < expected:
@@ -740,9 +832,26 @@ def main() -> int:
         "eyebrow": f"{date_label(date_value)} · 群日报",
         "scope_target": f"{date_value.isoformat()} 00:00–24:00",
         "scope_visible": scope_visible,
-        "groups_foot": f"{len(group_data)} 个群 · 一条联系方式一条线索",
-        "claims_foot": f"共 {claims_count} 条领取关系（{claim_message_count} 条消息）",
-        "unclaimed_foot": f"{len(unclaimed)} 条线索没人扣 1",
+        "groups_foot": (
+            f"{len(group_data)} 个群 · {len(all_leads)} 条线索去重后 "
+            f"{analytics['unique_customers']} 个客户"
+        ),
+        "claims_foot": (
+            f"{analytics['claim_relations']} 次领取 · {claim_message_count} 条领取消息"
+            + (
+                f" · {analytics['multi_claimer_customers']} 个客户多人领"
+                if analytics["multi_claimer_customers"]
+                else ""
+            )
+        ),
+        "unclaimed_foot": (
+            f"{analytics['unclaimed_customers']} 个客户没人领"
+            + (
+                f" · {analytics['duplicate_posts']} 次重复发布已合并"
+                if analytics["duplicate_posts"]
+                else ""
+            )
+        ),
         "review_foot": f"{len(all_orphans)} 条无对应线索 · {review_items} 项需核对",
         "groups_title": f"{len(group_data)} 个群",
         "insights_title": "",
@@ -751,31 +860,47 @@ def main() -> int:
         "footer_note": "只读采集 · 不发送消息 · 数据只留本机",
         "export_name": f"群日报_{date_value.isoformat()}.xlsx",
         "lede": (
-            f"共 {len(group_data)} 个群、{len(all_leads)} 条线索；"
-            f"{claim_message_count} 条领取消息，形成 {claims_count} 条领取关系，"
-            f"{len(all_orphans)} 条没有对应线索。"
-            "先看下面几件事，明细点开再看。"
+            f"共 {len(group_data)} 个群，{analytics['unique_customers']} 个客户"
+            f"（{len(all_leads)} 条线索去重后）；"
+            f"{analytics['claim_relations']} 次领取、{claim_message_count} 条领取消息"
+            + (
+                f"，{analytics['multi_claimer_customers']} 个客户被多人领取"
+                if analytics["multi_claimer_customers"]
+                else ""
+            )
+            + f"；{len(all_orphans)} 条领取没有对应线索。先看下面几件事，明细点开再看。"
         ),
     }
-    attention = build_attention(all_leads, all_orphans, issue_groups, low_leads)
-    insights = build_insights(all_leads, all_orphans, issue_groups)
+    attention = build_attention(all_leads, all_orphans, issue_groups, low_leads, customers)
+    insights = build_insights(all_leads, all_orphans, issue_groups, analytics)
     meta["insights_title"] = f"豆包看到的 {len(insights)} 件事"
     data = {
         "meta": meta,
         "stats": {
             "groups": len(group_data),
             "leads": len(all_leads),
-            "claimed": sum(1 for lead in all_leads if lead["status"] == "claimed"),
-            "unclaimed": len(unclaimed),
-            "claims": claims_count,
+            "customers": analytics["unique_customers"],
+            "unique_customers": analytics["unique_customers"],
+            "claimed": analytics["claimed_customers"],
+            "unclaimed": analytics["unclaimed_customers"],
+            "claim_relations": analytics["claim_relations"],
             "claim_messages": claim_message_count,
+            "claims": claims_count,
+            "multi_claimer_customers": analytics["multi_claimer_customers"],
+            "duplicate_posts": analytics["duplicate_posts"],
+            "publisher_count": analytics["publisher_count"],
+            "claimer_count": analytics["claimer_count"],
             "orphans": len(all_orphans),
             "review": review_items,
-            "unclaimed_contacts": len(unclaimed),
+            "unclaimed_contacts": analytics["unclaimed_customers"],
         },
         "groups": group_data,
         "leads": all_leads,
         "orphans": all_orphans,
+        "customers": customers,
+        "publishers": publishers,
+        "claimers": claimers,
+        "affinities": analytics["affinities"],
         "attention": attention,
         "insights": insights,
         "notes": build_notes(group_data, date_value, source_name),

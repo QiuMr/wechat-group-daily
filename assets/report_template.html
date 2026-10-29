@@ -122,6 +122,31 @@
   .kpi.review .kpi-value { color: var(--red); }
   .kpi-foot { color: var(--muted); font-size: 10px; line-height: 1.55; margin-top: 8px; }
 
+  /* people */
+  .people-summary { color: var(--ink-soft); font-size: 12px; line-height: 1.75; margin: -2px 0 14px; }
+  .people-summary strong { color: var(--ink); }
+  .people-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .people-card { background: #fbf9f4; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  .people-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 12px 14px 10px; border-bottom: 1px solid var(--line); }
+  .people-head h3 { margin: 0; font-size: 13px; letter-spacing: -.01em; }
+  .people-head span { color: var(--muted); font-size: 9px; }
+  .people-scroll { overflow-x: auto; }
+  .people-table { width: 100%; border-collapse: collapse; font-size: 11px; font-variant-numeric: tabular-nums; }
+  .people-table th {
+    padding: 8px 10px; text-align: left; color: var(--muted); font-size: 9px;
+    font-weight: 700; letter-spacing: .04em; white-space: nowrap; background: rgba(255, 253, 250, .7);
+  }
+  .people-table td { padding: 9px 10px; border-top: 1px dashed var(--line); vertical-align: middle; }
+  .people-table tbody tr:first-child td { border-top: none; }
+  .people-table tr:hover td { background: #fff; }
+  .people-name { display: inline-flex; align-items: center; gap: 7px; font-weight: 700; white-space: nowrap; }
+  .people-sub { display: block; margin-top: 3px; color: var(--muted); font-size: 9px; font-weight: 400; white-space: nowrap; }
+  .people-rate { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .people-rate i { display: block; width: 42px; height: 4px; border-radius: 999px; background: #eee9df; overflow: hidden; }
+  .people-rate i b { display: block; height: 100%; border-radius: 999px; background: var(--accent); }
+  .people-empty { padding: 22px 14px; color: var(--muted); font-size: 11px; }
+  .people-footnote { color: var(--muted); font-size: 10px; line-height: 1.65; margin: 12px 0 0; }
+
   /* panels */
   .panel {
     background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
@@ -313,6 +338,7 @@
     .group-row { grid-template-columns: minmax(0, 1fr) auto; }
     .group-stat { display: none; }
     .group-mobile-stats { display: block; margin-top: 5px; color: var(--muted); font-size: 10px; line-height: 1.5; }
+    .people-grid { grid-template-columns: 1fr; }
     .notes-grid { grid-template-columns: 1fr; }
   }
   @media (max-width: 560px) {
@@ -374,7 +400,7 @@
     <section class="hero">
       <div>
         <div class="eyebrow" id="eyebrow">__EYEBROW__</div>
-        <h1><span id="hero-prefix">__HERO_PREFIX__</span><span class="accent nowrap" id="hero-claimed">12 条线索</span><span class="nowrap">有人扣 1</span>，<span class="warn nowrap" id="hero-unclaimed">2 条没人扣 1</span>。</h1>
+        <h1><span id="hero-prefix">__HERO_PREFIX__</span><span class="accent nowrap" id="hero-claimed">12 个客户</span><span class="nowrap">有人领</span>，<span class="warn nowrap" id="hero-unclaimed">2 个没人领</span>。</h1>
         <p class="lede" id="hero-lede">群1 和群2 共 14 条线索；其中 1 条“1”没有对应线索，群2 的数据可能不完整。先看下面三件事，明细点开再看。</p>
       </div>
       <aside class="hero-note">
@@ -386,17 +412,17 @@
 
     <section class="kpis" aria-label="关键数字">
       <div class="kpi">
-        <div class="kpi-label">线索</div>
+        <div class="kpi-label">今日客户</div>
         <div class="kpi-value" id="kpi-leads">14</div>
         <div class="kpi-foot" id="kpi-leads-foot">__GROUPS_FOOT__</div>
       </div>
       <div class="kpi good">
-        <div class="kpi-label">有人扣 1</div>
+        <div class="kpi-label">领取量</div>
         <div class="kpi-value" id="kpi-claimed">12</div>
         <div class="kpi-foot" id="kpi-claims-foot">__CLAIMS_FOOT__</div>
       </div>
       <div class="kpi warn">
-        <div class="kpi-label">没人扣 1</div>
+        <div class="kpi-label">没人领</div>
         <div class="kpi-value" id="kpi-unclaimed">2</div>
         <div class="kpi-foot" id="kpi-unclaimed-foot">__UNCLAIMED_FOOT__</div>
       </div>
@@ -405,6 +431,28 @@
         <div class="kpi-value" id="kpi-review">2</div>
         <div class="kpi-foot" id="kpi-review-foot">__REVIEW_FOOT__</div>
       </div>
+    </section>
+
+    <section class="panel" aria-labelledby="people-title" id="people-panel">
+      <div class="panel-head">
+        <div>
+          <div class="panel-kicker">谁丢、谁领</div>
+          <h2 id="people-title">丢客与领取</h2>
+        </div>
+        <span class="muted small" id="people-count"></span>
+      </div>
+      <div class="people-summary" id="people-summary"></div>
+      <div class="people-grid">
+        <div class="people-card">
+          <div class="people-head"><h3>丢客员</h3><span>按客户数排</span></div>
+          <div class="people-scroll" id="publisher-table"></div>
+        </div>
+        <div class="people-card">
+          <div class="people-head"><h3>客服领取</h3><span>按领取客户数排</span></div>
+          <div class="people-scroll" id="claimer-table"></div>
+        </div>
+      </div>
+      <p class="people-footnote">领取量按“客户 × 客服”算：同一客户两个客服领算 2 次，一个“1”领一批 3 个客户算 3 次。偏好 = 该客服领的客户里，来自某个丢客员的比例。</p>
     </section>
 
     <section class="panel" aria-labelledby="attention-title">
@@ -543,11 +591,11 @@ function setHero() {
   $("#hero-prefix").textContent = meta.hero_prefix || "";
   $("#scope-target").textContent = meta.scope_target || "";
   $("#scope-visible").textContent = meta.scope_visible || "";
-  $("#hero-claimed").textContent = `${DATA.stats.claimed} 条线索`;
-  $("#hero-unclaimed").textContent = `${DATA.stats.unclaimed} 条没人扣 1`;
+  $("#hero-claimed").textContent = `${DATA.stats.claimed} 个客户`;
+  $("#hero-unclaimed").textContent = `${DATA.stats.unclaimed} 个没人领`;
   $("#hero-lede").textContent = meta.lede || "";
-  $("#kpi-leads").textContent = DATA.stats.leads;
-  $("#kpi-claimed").textContent = DATA.stats.claimed;
+  $("#kpi-leads").textContent = DATA.stats.unique_customers ?? DATA.stats.customers ?? DATA.stats.leads;
+  $("#kpi-claimed").textContent = DATA.stats.claim_relations ?? DATA.stats.claims;
   $("#kpi-unclaimed").textContent = DATA.stats.unclaimed;
   $("#kpi-review").textContent = DATA.stats.review;
   $("#kpi-leads-foot").textContent = meta.groups_foot || `${DATA.stats.groups} 个群`;
@@ -560,6 +608,79 @@ function setHero() {
   $("#footer-source").textContent = meta.footer_source || "";
   $("#footer-note").textContent = meta.footer_note || "";
   $("#attention-count").textContent = `${DATA.attention.length} 项`;
+}
+
+function personBadge(name) {
+  return `<span class="people-name"><span class="avatar" style="background:${avatarColor(name)}">${escapeHtml(String(name || "?").slice(0, 1))}</span><strong>${escapeHtml(name || "未知")}</strong></span>`;
+}
+
+function rateCell(percent) {
+  const value = Math.max(0, Math.min(100, Number(percent) || 0));
+  return `<span class="people-rate"><i><b style="width:${value}%"></b></i>${value}%</span>`;
+}
+
+function topNames(items, withCount) {
+  if (!items || !items.length) return '<span class="muted">—</span>';
+  return items
+    .map((item) => `${escapeHtml(item.name)}${withCount ? ` ${item.count}` : ""}`)
+    .join("、");
+}
+
+function renderPeople() {
+  const publishers = DATA.publishers || [];
+  const claimers = DATA.claimers || [];
+  const panel = $("#people-panel");
+  if (!publishers.length && !claimers.length) {
+    panel.hidden = true;
+    return;
+  }
+  const stats = DATA.stats || {};
+  const unique = stats.unique_customers ?? stats.customers ?? stats.leads ?? 0;
+  const relations = stats.claim_relations ?? stats.claims ?? 0;
+  $("#people-count").textContent = `${unique} 个客户 · ${relations} 次领取`;
+  const bits = [
+    `去重后 <strong>${unique}</strong> 个客户`,
+    `<strong>${stats.claimed ?? 0}</strong> 个有人领`,
+    `<strong>${stats.unclaimed ?? 0}</strong> 个没人领`
+  ];
+  if (stats.multi_claimer_customers) {
+    bits.push(`<strong>${stats.multi_claimer_customers}</strong> 个客户被多人领取`);
+  }
+  if (stats.duplicate_posts) {
+    bits.push(`<strong>${stats.duplicate_posts}</strong> 次重复发布已合并`);
+  }
+  $("#people-summary").innerHTML = bits.join("；") + "。";
+
+  $("#publisher-table").innerHTML = publishers.length ? `
+    <table class="people-table">
+      <thead><tr><th>丢客员</th><th>客户</th><th>有人领</th><th>没人领</th><th>领取率</th><th>主要领取人</th></tr></thead>
+      <tbody>${publishers.map((publisher) => `
+        <tr>
+          <td>${personBadge(publisher.name)}${publisher.duplicates ? `<span class="people-sub">另有 ${publisher.duplicates} 次重复发布</span>` : ""}</td>
+          <td>${publisher.customers}</td>
+          <td>${publisher.claimed}</td>
+          <td>${publisher.unclaimed}</td>
+          <td>${rateCell(publisher.claim_share)}</td>
+          <td>${topNames(publisher.top_claimers, true)}</td>
+        </tr>
+      `).join("")}</tbody>
+    </table>
+  ` : '<div class="people-empty">今天没有人发线索。</div>';
+
+  $("#claimer-table").innerHTML = claimers.length ? `
+    <table class="people-table">
+      <thead><tr><th>客服</th><th>领取客户</th><th>占全部</th><th>最常领谁</th><th>偏好</th></tr></thead>
+      <tbody>${claimers.map((claimer) => `
+        <tr>
+          <td>${personBadge(claimer.name)}<span class="people-sub">${claimer.claim_messages} 条领取消息${claimer.orphan_claims ? ` · ${claimer.orphan_claims} 条对不上` : ""}</span></td>
+          <td>${claimer.customers}</td>
+          <td>${rateCell(claimer.claim_share)}</td>
+          <td>${topNames(claimer.top_publishers, true)}</td>
+          <td>${claimer.preference ? escapeHtml(claimer.preference.text) : '<span class="muted">—</span>'}</td>
+        </tr>
+      `).join("")}</tbody>
+    </table>
+  ` : '<div class="people-empty">今天还没有人领取。</div>';
 }
 
 function renderAttention() {
@@ -825,6 +946,7 @@ $("#evidence-dialog").addEventListener("click", (event) => {
 });
 
 setHero();
+renderPeople();
 renderAttention();
 renderGroups();
 renderInsights();

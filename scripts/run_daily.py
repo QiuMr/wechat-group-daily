@@ -74,17 +74,19 @@ def write_status(value: date_cls, payload: dict[str, Any], home: Path) -> None:
 def build_brief(data: dict[str, Any], prefix: str) -> list[str]:
     stats = data["stats"]
     lines = [
-        f"{prefix}{stats['groups']} 个群，共 {stats['leads']} 条线索："
-        f"{stats['claimed']} 条有人扣 1，{stats['unclaimed']} 条没人扣 1。"
+        f"{prefix}{stats['groups']} 个群，去重后 {stats.get('unique_customers', stats['leads'])} 个客户："
+        f"{stats['claimed']} 个有人领，{stats['unclaimed']} 个没人领；"
+        f"共 {stats.get('claim_relations', stats.get('claims', 0))} 次领取"
+        f"（{stats.get('claim_messages', 0)} 条领取消息）。"
     ]
     for insight in data.get("insights") or []:
         if insight not in lines:
             lines.append(str(insight))
-        if len(lines) >= 2:
+        if len(lines) >= 3:
             break
     if stats.get("unclaimed") or stats.get("orphans") or stats.get("review"):
         lines.append(
-            f"需要先看：{stats.get('unclaimed', 0)} 条线索没人扣 1、"
+            f"需要先看：{stats.get('unclaimed', 0)} 个客户没人领、"
             f"{stats.get('orphans', 0)} 条领取对不上线索、"
             f"{stats.get('review', 0)} 项数据需核对。"
         )
@@ -133,6 +135,16 @@ def build_summary(
         "prefix": relative_prefix(value),
         "partial": partial,
         "stats": stats,
+        "analytics": {
+            "unique_customers": stats.get("unique_customers"),
+            "claim_relations": stats.get("claim_relations"),
+            "claim_messages": stats.get("claim_messages"),
+            "multi_claimer_customers": stats.get("multi_claimer_customers"),
+            "duplicate_posts": stats.get("duplicate_posts"),
+            "publishers": data.get("publishers") or [],
+            "claimers": data.get("claimers") or [],
+            "top_affinities": (data.get("affinities") or [])[:10],
+        },
         "brief_lines": build_brief(data, relative_prefix(value)),
         "groups": groups,
         "attention": data.get("attention") or [],

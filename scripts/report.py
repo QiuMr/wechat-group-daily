@@ -8,6 +8,7 @@ import html
 import json
 import re
 import shutil
+import sys
 from collections import Counter
 from datetime import date as date_cls, datetime, timedelta
 from pathlib import Path
@@ -16,6 +17,15 @@ from typing import Any
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
+
+from analytics import build_analytics
+
+for _stream in (sys.stdout, sys.stderr):
+    if _stream is not None and hasattr(_stream, "reconfigure"):
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except (OSError, ValueError):
+            pass
 
 BASE = Path(__file__).resolve().parent
 SKILL = BASE.parent
@@ -553,6 +563,9 @@ def load_data(
     for index, orphan in enumerate(all_orphans, start=1):
         orphan["id"] = f"X{index:02d}"
 
+    orphan_claimers = Counter(orphan["sender"] for orphan in all_orphans if orphan["sender"])
+    analytics = build_analytics(all_leads, None, orphan_claimers)
+
     lead_count = len(all_leads)
     claimed = sum(1 for lead in all_leads if lead["status"] == "claimed")
     unclaimed = sum(1 for lead in all_leads if lead["status"] == "unclaimed")
@@ -752,12 +765,14 @@ def load_data(
         "eyebrow": f"{date_label} · 群日报",
         "scope_target": f"{date_value.month}-{date_value.day:02d} 00:00–24:00",
         "scope_visible": scope_visible,
-        "groups_foot": f"{len(groups)} 个群 · 已按发布批次合并",
-        "claims_foot": f"共 {claims} 条扣 1 记录",
+        "groups_foot": (
+            f"{len(groups)} 个群 · {lead_count} 条线索去重后 {analytics['unique_customers']} 个客户"
+        ),
+        "claims_foot": f"{analytics['claim_relations']} 次领取 · {claims} 条领取记录",
         "unclaimed_foot": (
-            f"{unclaimed} 批，共 {unclaimed_contacts} 个联系方式"
-            if unclaimed
-            else "没有没人扣 1 的批次"
+            f"{analytics['unclaimed_customers']} 个客户没人领"
+            if analytics["unclaimed_customers"]
+            else "没有没人领的客户"
         ),
         "review_foot": (
             f"{len(all_orphans)} 条无对应线索 · {len(issue_groups)} 个群数据需核对"
@@ -769,8 +784,9 @@ def load_data(
         "footer_note": "只读采集 · 不发送消息 · " + ("联系方式已脱敏" if mask else "数据只留本机"),
         "export_name": f"群日报_{date_value.isoformat()}.xlsx",
         "lede": (
-            f"共 {len(groups)} 个群、{lead_count} 条线索；"
-            f"{claims} 条扣 1 记录，{len(all_orphans)} 条没有对应线索。"
+            f"共 {len(groups)} 个群、{analytics['unique_customers']} 个客户"
+            f"（{lead_count} 条线索去重后）；"
+            f"{analytics['claim_relations']} 次领取，{len(all_orphans)} 条领取没有对应线索。"
             "先看下面几件事，明细点开再看。"
         ),
     }
@@ -780,16 +796,28 @@ def load_data(
         "stats": {
             "groups": len(groups),
             "leads": lead_count,
-            "claimed": claimed,
-            "unclaimed": unclaimed,
+            "customers": analytics["unique_customers"],
+            "unique_customers": analytics["unique_customers"],
+            "claimed": analytics["claimed_customers"],
+            "unclaimed": analytics["unclaimed_customers"],
+            "claim_relations": analytics["claim_relations"],
+            "claim_messages": analytics["claim_relations"],
             "claims": claims,
+            "multi_claimer_customers": analytics["multi_claimer_customers"],
+            "duplicate_posts": analytics["duplicate_posts"],
+            "publisher_count": analytics["publisher_count"],
+            "claimer_count": analytics["claimer_count"],
             "orphans": len(all_orphans),
             "review": len(all_orphans) + len(issue_groups),
-            "unclaimed_contacts": unclaimed_contacts,
+            "unclaimed_contacts": analytics["unclaimed_customers"],
         },
         "groups": groups,
         "leads": all_leads,
         "orphans": all_orphans,
+        "customers": analytics["customers"],
+        "publishers": analytics["publishers"],
+        "claimers": analytics["claimers"],
+        "affinities": analytics["affinities"],
         "attention": attention,
         "insights": insights,
         "notes": notes,
@@ -878,6 +906,123 @@ def build_xlsx(data: dict[str, Any], path: Path) -> None:
         cell.font = Font(name="微软雅黑", bold=True, size=10, color="0A5C4C" if cell.value == "有人扣 1" else "B45309")
         cell.alignment = Alignment(horizontal="center", vertical="center")
     detail_sheet.sheet_properties.tabColor = "0E7C66"
+
+    customers = data.get("customers") or []
+    if customers:
+        customer_sheet = workbook.create_sheet("客户去重")
+        customer_rows = []
+        for customer in customers:
+            claimers = "；".join(
+                f"{claimer['name']}（{claimer.get('time_label') or '-'}）"
+                for claimer in customer.get("claimers") or []
+            )
+            customer_rows.append(
+                [
+                    meta["date"],
+                    customer["id"],
+                    customer.get("contact", {}).get("display") or "",
+                    customer.get("publisher") or "",
+                    customer.get("group_label") or "",
+                    customer.get("time_label") or "—",
+                    customer.get("occurrences") or 1,
+                    "、".join(customer.get("lead_ids") or []),
+                    claimers or "—",
+                    "有人领" if customer["status"] == "claimed" else "没人领",
+                    customer.get("note") or "",
+                ]
+            )
+        style_sheet(
+            customer_sheet,
+            ["日期", "客户编号", "联系方式", "首次发布人", "首发群", "首发时间", "发布次数", "线索编号", "扣1人", "状态", "备注"],
+            [12, 9, 26, 18, 26, 10, 8, 16, 30, 19, 34],
+            customer_rows,
+        )
+        for row_index in range(2, customer_sheet.max_row + 1):
+            cell = customer_sheet.cell(row=row_index, column=10)
+            cell.fill = claimed_fill if cell.value == "有人领" else unclaimed_fill
+            cell.font = Font(name="微软雅黑", bold=True, size=10, color="0A5C4C" if cell.value == "有人领" else "B45309")
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+        customer_sheet.sheet_properties.tabColor = "2F6F9F"
+
+    publishers = data.get("publishers") or []
+    if publishers:
+        publisher_sheet = workbook.create_sheet("丢客员")
+        publisher_rows = []
+        for publisher in publishers:
+            top = "、".join(
+                f"{item['name']} {item['count']}" for item in publisher.get("top_claimers") or []
+            )
+            publisher_rows.append(
+                [
+                    publisher["name"],
+                    publisher["customers"],
+                    publisher["claimed"],
+                    publisher["unclaimed"],
+                    f"{publisher['claim_share']}%",
+                    publisher["claim_relations"],
+                    top or "—",
+                    publisher.get("duplicates") or 0,
+                ]
+            )
+        style_sheet(
+            publisher_sheet,
+            ["丢客员", "客户数", "有人领", "没人领", "领取率", "领取关系", "主要领取人", "重复发布"],
+            [20, 9, 9, 9, 9, 10, 34, 10],
+            publisher_rows,
+        )
+        publisher_sheet.sheet_properties.tabColor = "6D5BD0"
+
+    claimers = data.get("claimers") or []
+    if claimers:
+        claimer_sheet = workbook.create_sheet("客服领取")
+        claimer_rows = []
+        for claimer in claimers:
+            top = "、".join(
+                f"{item['name']} {item['count']}" for item in claimer.get("top_publishers") or []
+            )
+            preference = claimer.get("preference") or {}
+            claimer_rows.append(
+                [
+                    claimer["name"],
+                    claimer["customers"],
+                    f"{claimer['claim_share']}%",
+                    claimer["claim_relations"],
+                    claimer["claim_messages"],
+                    top or "—",
+                    preference.get("text") or "—",
+                    claimer.get("orphan_claims") or 0,
+                ]
+            )
+        style_sheet(
+            claimer_sheet,
+            ["客服", "领取客户", "占全部", "领取关系", "领取消息", "最常领谁", "偏好", "对不上线索"],
+            [18, 10, 9, 10, 10, 34, 26, 11],
+            claimer_rows,
+        )
+        claimer_sheet.sheet_properties.tabColor = "B45309"
+
+    affinities = data.get("affinities") or []
+    if affinities:
+        affinity_sheet = workbook.create_sheet("领取关系")
+        affinity_rows = []
+        for item in affinities:
+            affinity_rows.append(
+                [
+                    item["publisher"],
+                    item["claimer"],
+                    item["customers"],
+                    f"{item['share_of_publisher_claimed']}%",
+                    f"{item['share_of_publisher_total']}%",
+                    f"{item['share_of_claimer']}%",
+                ]
+            )
+        style_sheet(
+            affinity_sheet,
+            ["丢客员", "客服", "领取客户数", "占该丢客员已领", "占该丢客员全部", "占该客服领取"],
+            [20, 18, 12, 16, 16, 14],
+            affinity_rows,
+        )
+        affinity_sheet.sheet_properties.tabColor = "0E7C66"
 
     claim_sheet = workbook.create_sheet("领取记录")
     claim_rows = []
