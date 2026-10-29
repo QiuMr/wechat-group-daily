@@ -781,6 +781,20 @@ def main() -> int:
     customers = analytics["customers"]
     publishers = analytics["publishers"]
     claimers = analytics["claimers"]
+    lead_by_id = {lead["id"]: lead for lead in all_leads}
+    for customer in customers:
+        if not customer["duplicate_count"]:
+            continue
+        for position, lead_id in enumerate(customer["lead_ids"]):
+            lead = lead_by_id.get(lead_id)
+            if lead is None:
+                continue
+            suffix = (
+                f"同一客户共发布 {customer['occurrences']} 次，已合并到 {customer['id']}"
+                if position == 0
+                else f"同一客户重复发布，已合并到 {customer['id']}"
+            )
+            lead["note"] = "；".join(part for part in (lead.get("note"), suffix) if part)
 
     issue_groups = [group for group in group_data if group["status"] != "complete"]
     low_leads = [
