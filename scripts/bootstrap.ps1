@@ -157,8 +157,7 @@ try {
         }
     }
 
-    Say "配置国内 pip 源：$PipMirror"
-    & $venvPy -m pip config --site set global.index-url $PipMirror 2>$null | Out-Null
+    Say "配置国内 pip 源（默认 $PipMirror）"
     & $venvPy -m pip config --site set global.timeout 60 2>$null | Out-Null
 
     $mirrors = @($PipMirror, 'https://mirrors.aliyun.com/pypi/simple/', 'https://pypi.tuna.tsinghua.edu.cn/simple/') |
@@ -171,6 +170,7 @@ try {
         & $venvPy -m pip install -r (Join-Path $Root 'requirements.txt') --index-url $mirror `
             --disable-pip-version-check --no-input --progress-bar off 2>&1 | ForEach-Object { Write-Host $_ }
         if ($LASTEXITCODE -eq 0) {
+            & $venvPy -m pip config --site set global.index-url $mirror 2>$null | Out-Null
             $installed = $true
             break
         }
