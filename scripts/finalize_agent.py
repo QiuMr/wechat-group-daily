@@ -157,15 +157,21 @@ def build_lead(
         confidence_value = None
     group_leads = [item for item in claims if item["target_lead_id"] == agent_id and item["is_claim"]]
     group_leads.sort(key=lambda item: (item["time"], item["seq"], item["message_uid"]))
-    claimers = [
-        {
-            "name": item["sender"],
-            "time": item["time"] or None,
-            "time_label": item["time_label"],
-            "order": index,
-        }
-        for index, item in enumerate(group_leads, start=1)
-    ]
+    claimers = []
+    seen_claimers: set[str] = set()
+    for item in group_leads:
+        key = item["sender"] or item["message_uid"]
+        if key in seen_claimers:
+            continue
+        seen_claimers.add(key)
+        claimers.append(
+            {
+                "name": item["sender"],
+                "time": item["time"] or None,
+                "time_label": item["time_label"],
+                "order": len(claimers) + 1,
+            }
+        )
     note_parts = []
     agent_note = str(agent.get("note") or "").strip()
     if agent_note:
@@ -360,6 +366,7 @@ def build_group_data(
         status_label = "完整"
     claimed = sum(1 for lead in leads if lead["status"] == "claimed")
     unclaimed = len(leads) - claimed
+    claim_rows = [claim for claim in claims if claim["is_claim"]]
     claimers = set()
     for lead in leads:
         for claimer in lead["claimers"]:
@@ -377,7 +384,8 @@ def build_group_data(
         "claimed": claimed,
         "unclaimed": unclaimed,
         "claimers": len(claimers),
-        "claims": len([claim for claim in claims if claim["is_claim"]]),
+        "claims": len(claim_rows),
+        "claim_messages": len({claim["message_uid"] for claim in claim_rows}),
         "orphans": len(orphans),
         "unclaimed_contacts": unclaimed,
         "coverage_from": group.get("coverage_from") or "-",
@@ -419,7 +427,7 @@ def build_attention(
             {
                 "kind": "unclaimed",
                 "title": title,
-                "detail": f"{times}；可能私聊接了，群里看不到。",
+                "detail": f"{times}；可能私聊接了，或连续丢客只回了一个“1”，群里看不到。",
                 "action": "看明细",
                 "target": "unclaimed",
             }
@@ -482,13 +490,13 @@ def build_insights(
     if counter:
         top = counter.most_common(3)
         insights = [
-            "领取最多的是 " + "、".join(f"{name} {count} 次" for name, count in top) + "。"
+            "领取最多的是 " + "、".join(f"{name} {count} 个客户" for name, count in top) + "。"
         ]
     else:
         insights = ["这一天还没有人领取。"]
     unclaimed = [lead for lead in leads if lead["status"] == "unclaimed"]
     if unclaimed:
-        insights.append(f"{len(unclaimed)} 条线索没人扣 1；可能私聊接了，群里看不到。")
+        insights.append(f"{len(unclaimed)} 条线索没人扣 1；可能私聊接了，或连续丢客只回了一个“1”。")
     else:
         insights.append("所有线索在群里都有人领取。")
     image_leads = [lead for lead in leads if lead.get("source_type") == "image"]
@@ -538,6 +546,10 @@ def build_notes(
         {
             "label": "扣 1 口径",
             "value": "由豆包按语义判断：1、我要、接了、私聊，以及其他表示领取的话；不按固定关键词硬切。",
+        },
+        {
+            "label": "批量领取",
+            "value": "同一个人连续发 2–4 条线索算一批；后面一个“1”默认领整批，同批每条都记领取；两个人各扣 1，两个人都记到整批；只有明确“只要一个/引用某条”才只领一条。",
         },
         {
             "label": "图片口径",
@@ -690,7 +702,9 @@ def main() -> int:
         if lead.get("agent_confidence") is not None and lead["agent_confidence"] < low_confidence
     ]
     unclaimed = [lead for lead in all_leads if lead["status"] == "unclaimed"]
-    claims_count = len([claim for claim in all_claims if claim["is_claim"]])
+    claim_rows = [claim for claim in all_claims if claim["is_claim"]]
+    claims_count = len(claim_rows)
+    claim_message_count = len({claim["message_uid"] for claim in claim_rows})
     review_items = len(all_orphans) + len(issue_groups) + len(low_leads)
     expected = expected_groups(config)
     if expected and len(groups) < expected:
@@ -727,7 +741,7 @@ def main() -> int:
         "scope_target": f"{date_value.isoformat()} 00:00–24:00",
         "scope_visible": scope_visible,
         "groups_foot": f"{len(group_data)} 个群 · 一条联系方式一条线索",
-        "claims_foot": f"共 {claims_count} 条领取记录",
+        "claims_foot": f"共 {claims_count} 条领取关系（{claim_message_count} 条消息）",
         "unclaimed_foot": f"{len(unclaimed)} 条线索没人扣 1",
         "review_foot": f"{len(all_orphans)} 条无对应线索 · {review_items} 项需核对",
         "groups_title": f"{len(group_data)} 个群",
@@ -738,7 +752,8 @@ def main() -> int:
         "export_name": f"群日报_{date_value.isoformat()}.xlsx",
         "lede": (
             f"共 {len(group_data)} 个群、{len(all_leads)} 条线索；"
-            f"{claims_count} 条领取记录，{len(all_orphans)} 条没有对应线索。"
+            f"{claim_message_count} 条领取消息，形成 {claims_count} 条领取关系，"
+            f"{len(all_orphans)} 条没有对应线索。"
             "先看下面几件事，明细点开再看。"
         ),
     }
@@ -753,6 +768,7 @@ def main() -> int:
             "claimed": sum(1 for lead in all_leads if lead["status"] == "claimed"),
             "unclaimed": len(unclaimed),
             "claims": claims_count,
+            "claim_messages": claim_message_count,
             "orphans": len(all_orphans),
             "review": review_items,
             "unclaimed_contacts": len(unclaimed),
