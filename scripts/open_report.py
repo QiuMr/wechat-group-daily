@@ -33,6 +33,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="打开群日报")
     parser.add_argument("--date", default="yesterday", help="yesterday / today / 2026-10-28")
     parser.add_argument("--latest", action="store_true", help="打开最近一份报告")
+    parser.add_argument("--targets", action="store_true", help="打开目标进度看板")
     parser.add_argument("--home", default="", help="数据目录")
     parser.add_argument("--no-open", action="store_true", help="只返回路径，不打开浏览器")
     args = parser.parse_args()
@@ -98,10 +99,24 @@ def main() -> int:
     xlsx = summary.get("files", {}).get("xlsx") or str(
         (folder / "report" / f"群日报_{date_value}.xlsx").resolve()
     )
+    target = folder / "report" / "目标进度.html"
+    if args.targets:
+        if not target.exists():
+            return emit(
+                {
+                    "state": "not_ready",
+                    "date": date_value,
+                    "message": "目标进度看板还没有生成",
+                    "next": "先配置 config/targets.json，再运行 targets.py 或 finalize_agent.py",
+                },
+                1,
+            )
+        report = target
     payload = {
         "state": "opened" if not args.no_open else "ready",
         "date": date_value,
         "report": str(report.resolve()),
+        "targets": str(target.resolve()) if target.exists() else "",
         "xlsx": xlsx if Path(xlsx).exists() else "",
         "summary": str((folder / "summary.json").resolve()),
     }

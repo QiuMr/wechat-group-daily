@@ -15,6 +15,7 @@ from typing import Any
 import report as render_kit
 from analytics import build_analytics
 from check_group import check_group, load_jsonl
+from targets import build_for_date
 from common import (
     SKILL,
     data_home,
@@ -663,6 +664,7 @@ def main() -> int:
     parser.add_argument("--work", required=True)
     parser.add_argument("--out", required=True, help="报告输出目录")
     parser.add_argument("--config", default=str(SKILL / "config" / "groups.json"))
+    parser.add_argument("--targets-config", default=str(SKILL / "config" / "targets.json"))
     parser.add_argument("--home", default="")
     parser.add_argument("--date", default="")
     parser.add_argument("--allow-incomplete", action="store_true")
@@ -924,6 +926,16 @@ def main() -> int:
     (out / "facts.json").write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     render_kit.build_xlsx(data, out / meta["export_name"])
     render_kit.build_html(data, render_kit.DEFAULT_TEMPLATE, out / "report.html")
+    try:
+        target_result = build_for_date(
+            date_value,
+            home,
+            config_path=Path(args.targets_config),
+            out_dir=out,
+            current_facts=out / "facts.json",
+        )
+    except (OSError, ValueError) as exc:
+        target_result = {"state": "failed", "error": str(exc)}
 
     paths = {
         "report": out / "report.html",
@@ -934,6 +946,10 @@ def main() -> int:
         "probe": Path(index.get("probe") or ""),
     }
     summary = build_summary(data, date_value, paths, warnings)
+    summary["targets"] = target_result
+    if target_result.get("html"):
+        summary["files"]["targets"] = target_result["html"]
+        summary["files"]["targets_xlsx"] = target_result["xlsx"]
     summary["next"] = "打开 report，按需查看证据和导出 Excel"
     write_json(paths["summary"], summary)
     write_json(
@@ -947,6 +963,8 @@ def main() -> int:
             "message": "豆包整理完成，报告已生成",
             "report": str(paths["report"]),
             "xlsx": str(paths["xlsx"]),
+            "targets": target_result.get("html", ""),
+            "targets_xlsx": target_result.get("xlsx", ""),
             "summary": str(paths["summary"]),
             "log": str(paths["log"]),
             "warnings": warnings,

@@ -1,0 +1,886 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__</title>
+<style>
+  :root {
+    --bg: #f2efe8;
+    --surface: #fffdfa;
+    --surface-soft: #fbf8f1;
+    --ink: #1d2624;
+    --ink-soft: #3b4642;
+    --muted: #737c76;
+    --line: #e4ded3;
+    --line-strong: #d6cfc2;
+    --accent: #0e7c66;
+    --accent-deep: #0a5c4c;
+    --accent-soft: #e4f2ed;
+    --amber: #b45309;
+    --amber-soft: #fdf0dc;
+    --red: #b42318;
+    --red-soft: #fde8e6;
+    --violet: #6d5bd0;
+    --blue: #2f6f9f;
+    --shadow: 0 18px 48px rgba(29, 38, 36, .07);
+    --radius: 20px;
+    --font: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font);
+    -webkit-font-smoothing: antialiased;
+  }
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(900px 460px at 8% -10%, rgba(14, 124, 102, .10), transparent 62%),
+      radial-gradient(760px 420px at 100% 0%, rgba(180, 83, 9, .06), transparent 60%),
+      radial-gradient(700px 500px at 50% 110%, rgba(47, 111, 159, .05), transparent 70%);
+  }
+  button, input { font: inherit; }
+  button { color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .page { width: min(1240px, calc(100% - 48px)); margin: 0 auto; padding: 24px 0 48px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 11px; }
+  .nowrap { white-space: nowrap; }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+  }
+
+  /* top bar */
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 4px 0 20px; }
+  .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .brand-mark {
+    width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center;
+    background: var(--ink); color: #fff; font-size: 18px; font-weight: 700;
+    box-shadow: 0 8px 20px rgba(29, 38, 36, .18); flex: 0 0 auto;
+  }
+  .brand-title { font-weight: 700; letter-spacing: .02em; }
+  .brand-sub { color: var(--muted); font-size: 12px; margin-top: 3px; }
+  .top-actions { display: flex; align-items: center; justify-content: flex-end; gap: 9px; flex-wrap: wrap; }
+  .badge {
+    font-size: 11px; font-weight: 700; color: var(--accent-deep); background: var(--accent-soft);
+    border: 1px solid rgba(14, 124, 102, .18); padding: 7px 10px; border-radius: 999px; white-space: nowrap;
+  }
+  .btn {
+    appearance: none; border: 1px solid transparent; border-radius: 12px; padding: 10px 13px;
+    font-size: 12px; font-weight: 700; cursor: pointer; text-decoration: none;
+    display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
+    transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn.primary { background: var(--ink); color: #fff; box-shadow: 0 8px 20px rgba(29, 38, 36, .16); }
+  .btn.primary:hover { background: #111816; }
+  .btn.ghost { background: rgba(255, 255, 255, .55); border-color: var(--line); color: var(--ink-soft); }
+
+  /* hero */
+  .hero {
+    display: grid; grid-template-columns: minmax(0, 1fr) 288px; gap: 34px; align-items: stretch;
+    padding: 16px 0 24px; animation: rise .55s ease both;
+  }
+  .hero-copy { display: flex; flex-direction: column; justify-content: center; }
+  .eyebrow { color: var(--muted); font-size: 12px; letter-spacing: .10em; text-transform: uppercase; margin-bottom: 14px; }
+  .hero h1 {
+    margin: 0; max-width: 880px; font-size: clamp(32px, 4.1vw, 50px); line-height: 1.12;
+    letter-spacing: -.04em; font-weight: 700;
+  }
+  .hero h1 .accent { color: var(--accent); background: linear-gradient(transparent 72%, rgba(14, 124, 102, .16) 72%); }
+  .hero h1 .warn-text { color: var(--amber); background: linear-gradient(transparent 72%, rgba(180, 83, 9, .15) 72%); }
+  .hero h1 .good-text { color: var(--accent); }
+  .lede { margin: 18px 0 0; max-width: 760px; color: var(--ink-soft); font-size: 14px; line-height: 1.8; }
+  .hero-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px;
+    font-size: 10px; font-weight: 700; white-space: nowrap;
+  }
+  .pill.good { color: var(--accent-deep); background: var(--accent-soft); }
+  .pill.warn { color: var(--amber); background: var(--amber-soft); }
+  .pill.bad { color: var(--red); background: var(--red-soft); }
+  .pill.neutral { color: var(--muted); background: #f0ede6; }
+  .pill.ghost { color: var(--muted); background: rgba(255, 255, 255, .55); border: 1px solid var(--line); }
+
+  .gauge-card {
+    position: relative; overflow: hidden; border-radius: 24px; padding: 20px 20px 18px;
+    background:
+      radial-gradient(240px 180px at 80% 0%, rgba(70, 194, 165, .18), transparent 65%),
+      radial-gradient(200px 160px at 0% 100%, rgba(217, 164, 65, .12), transparent 60%),
+      #1d2624;
+    color: #fff; box-shadow: 0 24px 54px rgba(29, 38, 36, .20);
+    display: flex; flex-direction: column; justify-content: center; gap: 8px;
+  }
+  .gauge-wrap { position: relative; width: 220px; height: 220px; margin: 0 auto; }
+  .gauge { width: 100%; height: 100%; transform: rotate(-90deg); overflow: visible; }
+  .gauge circle { fill: none; stroke-linecap: round; }
+  .gauge .gauge-track { stroke: rgba(255, 255, 255, .10); stroke-width: 10; }
+  .gauge .gauge-track.inner { stroke-width: 12; }
+  .gauge .gauge-time { stroke: #d9a441; stroke-width: 10; transition: stroke-dasharray .7s ease; }
+  .gauge .gauge-done { stroke: #46c2a5; stroke-width: 12; transition: stroke-dasharray .7s ease; }
+  .gauge-card.behind .gauge-done { stroke: #e6a23c; }
+  .gauge-card.bad .gauge-done { stroke: #e06b5f; }
+  .gauge-center {
+    position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding-top: 2px;
+  }
+  .gauge-center strong { font-size: 36px; line-height: 1; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+  .gauge-center span { margin-top: 8px; color: #aebbb5; font-size: 10px; letter-spacing: .08em; }
+  .gauge-legend { display: flex; justify-content: space-between; gap: 10px; color: #b8c4be; font-size: 10px; padding: 0 4px; }
+  .gauge-legend b { color: #fff; font-variant-numeric: tabular-nums; }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: 1px; }
+  .dot.done { background: #46c2a5; }
+  .dot.time { background: #d9a441; }
+
+  /* kpis */
+  .kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 11px; margin: 2px 0 16px; }
+  .kpi {
+    position: relative; overflow: hidden; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 18px; padding: 16px 16px 14px; box-shadow: var(--shadow); animation: rise .55s ease both;
+  }
+  .kpi::after {
+    content: ""; position: absolute; right: -30px; top: -34px; width: 96px; height: 96px;
+    border-radius: 50%; background: var(--accent-soft); opacity: .65;
+  }
+  .kpi.warn::after { background: var(--amber-soft); }
+  .kpi.bad::after { background: var(--red-soft); }
+  .kpi-label { color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .04em; }
+  .kpi-value {
+    margin-top: 9px; font-size: 28px; font-weight: 700; line-height: 1.1;
+    letter-spacing: -.04em; font-variant-numeric: tabular-nums;
+  }
+  .kpi.good .kpi-value { color: var(--accent); }
+  .kpi.warn .kpi-value { color: var(--amber); }
+  .kpi.bad .kpi-value { color: var(--red); }
+  .kpi-foot { color: var(--muted); font-size: 10px; line-height: 1.5; margin-top: 7px; }
+
+  /* panels */
+  .panel {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 21px 22px; box-shadow: var(--shadow); animation: rise .55s ease both;
+  }
+  .panel-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; margin-bottom: 14px; }
+  .panel-kicker { margin-bottom: 5px; color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
+  .panel h2 { margin: 0; font-size: 19px; letter-spacing: -.025em; }
+  .panel-head .muted { white-space: nowrap; }
+  .grid-main { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(300px, 1fr); gap: 14px; }
+  .grid-bottom { display: grid; grid-template-columns: minmax(0, 1.04fr) minmax(300px, 1fr); gap: 14px; margin-top: 14px; }
+  .chart-panel, .today-panel { min-height: 360px; }
+  .chart-foot { margin: 10px 0 0; color: var(--muted); font-size: 10px; line-height: 1.65; }
+  .legend { display: flex; align-items: center; gap: 14px; color: var(--muted); font-size: 10px; white-space: nowrap; }
+  .line { display: inline-block; width: 18px; height: 2px; margin-right: 5px; vertical-align: 3px; border-radius: 2px; }
+  .line.done { background: var(--accent); }
+  .line.ideal { background: repeating-linear-gradient(90deg, #b9b2a6 0 4px, transparent 4px 7px); }
+
+  /* cumulative chart */
+  .chart { width: 100%; min-height: 0; }
+  .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .chart-empty { display: grid; place-items: center; min-height: 260px; color: var(--muted); font-size: 12px; border: 1px dashed var(--line-strong); border-radius: 14px; background: var(--surface-soft); }
+  .chart text { font-family: var(--font); }
+
+  /* today */
+  .today-list { display: grid; gap: 9px; padding-right: 3px; }
+  .today-row {
+    display: grid; grid-template-columns: minmax(78px, 118px) minmax(0, 1fr) 66px 48px;
+    gap: 10px; align-items: center; padding: 7px 0; border-bottom: 1px dashed var(--line);
+  }
+  .today-row:last-child { border-bottom: none; }
+  .today-name { display: flex; align-items: center; gap: 7px; min-width: 0; }
+  .avatar {
+    width: 23px; height: 23px; border-radius: 50%; display: inline-grid; place-items: center;
+    color: #fff; font-size: 10px; font-weight: 700; flex: 0 0 auto;
+  }
+  .today-name strong { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .today-bar { position: relative; height: 9px; border-radius: 999px; background: #eee9df; }
+  .today-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; background: var(--accent); }
+  .today-fill.warn { background: var(--amber); }
+  .today-fill.bad { background: var(--red); }
+  .today-target { position: absolute; top: -3px; width: 2px; height: 15px; border-radius: 2px; background: var(--ink); opacity: .55; }
+  .today-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .today-num strong { font-size: 14px; }
+  .today-num span { color: var(--muted); font-size: 9px; margin-left: 2px; }
+  .today-rate { text-align: right; font-size: 10px; font-weight: 700; white-space: nowrap; }
+  .today-rate.good { color: var(--accent); }
+  .today-rate.warn { color: var(--amber); }
+  .today-rate.bad { color: var(--red); }
+  .today-rate.neutral { color: var(--muted); }
+
+  /* publisher table */
+  .table-panel { margin-top: 14px; }
+  .table-wrap { overflow-x: auto; }
+  .pub-table { width: 100%; border-collapse: collapse; font-size: 11px; font-variant-numeric: tabular-nums; }
+  .pub-table th {
+    padding: 9px 8px; text-align: left; color: var(--muted); font-size: 9px; font-weight: 700;
+    letter-spacing: .04em; white-space: nowrap; border-bottom: 1px solid var(--line);
+    background: var(--surface-soft);
+  }
+  .pub-table td { padding: 11px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; white-space: nowrap; }
+  .pub-table tbody tr { transition: background .16s ease; }
+  .pub-table tbody tr:hover { background: #fff; }
+  .pub-table tbody tr.unconfigured { color: var(--muted); background: #faf8f2; }
+  .pub-table .rank { color: var(--muted); font-size: 10px; }
+  .pub-person { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; }
+  .pub-person .avatar { width: 25px; height: 25px; }
+  .rate-cell { min-width: 148px; }
+  .rate-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+  .rate-top strong { font-size: 13px; }
+  .rate-top span { color: var(--muted); font-size: 9px; }
+  .progress { position: relative; height: 7px; border-radius: 999px; background: #eee9df; overflow: visible; }
+  .progress > span { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; background: var(--accent); }
+  .progress > span.warn { background: var(--amber); }
+  .progress > span.bad { background: var(--red); }
+  .progress > i { position: absolute; top: -3px; width: 2px; height: 13px; border-radius: 2px; background: var(--ink); opacity: .7; }
+  .pace { font-weight: 700; }
+  .pace.good { color: var(--accent); }
+  .pace.warn { color: var(--amber); }
+  .pace.bad { color: var(--red); }
+  .pace.neutral { color: var(--muted); }
+  .pub-table .pill { padding: 5px 8px; font-size: 9px; }
+  .table-foot { margin: 12px 0 0; color: var(--muted); font-size: 10px; line-height: 1.65; }
+  .mobile-cards { display: none; }
+  .pub-card {
+    background: var(--surface-soft); border: 1px solid var(--line); border-radius: 14px;
+    padding: 13px 14px; break-inside: avoid;
+  }
+  .pub-card .pub-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .pub-card .pub-head .pub-person { font-size: 12px; }
+  .pub-card .pub-numbers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 11px 0 9px; }
+  .pub-card .pub-numbers div { display: flex; flex-direction: column; gap: 3px; }
+  .pub-card .pub-numbers span { color: var(--muted); font-size: 9px; }
+  .pub-card .pub-numbers strong { font-size: 17px; font-variant-numeric: tabular-nums; }
+  .pub-card .pub-foot { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; color: var(--muted); font-size: 9px; margin-top: 9px; }
+  .pub-card.unset { opacity: .78; }
+
+  /* heatmap */
+  .heatmap-panel { display: flex; flex-direction: column; }
+  .heatmap { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 6px; }
+  .heat-cell {
+    min-height: 54px; border-radius: 10px; padding: 7px 8px; background: #f0ede6; color: var(--ink);
+    display: flex; flex-direction: column; justify-content: space-between; gap: 4px;
+    border: 1px solid transparent; font-variant-numeric: tabular-nums;
+  }
+  .heat-cell .day { font-size: 9px; opacity: .65; }
+  .heat-cell .val { font-size: 11px; font-weight: 700; line-height: 1; }
+  .heat-cell.level-1 { background: #dcefe9; }
+  .heat-cell.level-2 { background: #b8dfd4; }
+  .heat-cell.level-3 { background: #6cbba7; color: #fff; }
+  .heat-cell.level-4 { background: var(--accent); color: #fff; }
+  .heat-cell.missing { background: #fff; border: 1px dashed var(--amber); color: var(--amber); }
+  .heat-cell.future { background: #f7f4ee; color: #b7b0a4; }
+  .heat-cell.legacy { background: #fff; border: 1px dashed var(--line-strong); color: var(--muted); }
+  .heat-legend { display: flex; align-items: center; justify-content: flex-end; gap: 5px; margin-top: 10px; color: var(--muted); font-size: 9px; }
+  .heat-legend i { width: 14px; height: 9px; border-radius: 3px; background: #f0ede6; display: inline-block; }
+  .heat-legend i.l1 { background: #dcefe9; }
+  .heat-legend i.l2 { background: #b8dfd4; }
+  .heat-legend i.l3 { background: #6cbba7; }
+  .heat-legend i.l4 { background: var(--accent); }
+  .heat-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; margin-top: auto; padding-top: 18px; }
+  .heat-stat { border-radius: 11px; padding: 10px 11px; background: var(--surface-soft); border: 1px solid var(--line); }
+  .heat-stat span { display: block; color: var(--muted); font-size: 9px; letter-spacing: .03em; margin-bottom: 4px; }
+  .heat-stat strong { font-size: 19px; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+  .heat-stat em { margin-left: 4px; color: var(--muted); font-size: 9px; font-style: normal; }
+
+  /* notes */
+  .note-list { display: grid; gap: 9px; }
+  .note-item { display: grid; grid-template-columns: 82px minmax(0, 1fr); gap: 10px; font-size: 11px; line-height: 1.65; }
+  .note-item .label { color: var(--muted); font-size: 9px; font-weight: 700; letter-spacing: .03em; padding-top: 2px; }
+  .warning-list { display: grid; gap: 7px; margin-top: 13px; }
+  .warning-item {
+    padding: 9px 11px; border-radius: 10px; background: var(--amber-soft); color: #7a480d;
+    font-size: 10px; line-height: 1.55;
+  }
+  .warning-item.empty { background: var(--accent-soft); color: var(--accent-deep); }
+  .callout {
+    margin-top: 13px; padding: 11px 13px; border-radius: 11px; background: #f4f1ea;
+    color: var(--ink-soft); font-size: 10px; line-height: 1.65;
+  }
+
+  footer { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-top: 22px; color: var(--muted); font-size: 10px; line-height: 1.7; }
+
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  html.static *, html.static *::before, html.static *::after { animation: none !important; transition: none !important; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  }
+
+  @media (max-width: 1080px) {
+    .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .hero { grid-template-columns: minmax(0, 1fr) 250px; gap: 22px; }
+    .gauge-wrap { width: 190px; height: 190px; }
+  }
+  @media (max-width: 860px) {
+    .page { width: min(100% - 28px, 760px); padding-top: 16px; }
+    .hero { grid-template-columns: 1fr; }
+    .gauge-card { display: grid; grid-template-columns: 180px minmax(0, 1fr); align-items: center; gap: 14px; padding: 16px; }
+    .gauge-wrap { width: 170px; height: 170px; margin: 0; }
+    .gauge-legend { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .grid-main, .grid-bottom { grid-template-columns: 1fr; }
+    .chart-panel, .today-panel { min-height: 0; }
+    .heatmap { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+  }
+  @media (max-width: 680px) {
+    .topbar { flex-direction: column; align-items: flex-start; gap: 12px; }
+    .top-actions { width: 100%; justify-content: flex-start; }
+    .hero h1 { font-size: 32px; }
+    .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .kpi-value { font-size: 25px; }
+    .panel { padding: 17px; }
+    .gauge-card { grid-template-columns: 1fr; justify-items: center; }
+    .gauge-wrap { width: 180px; height: 180px; }
+    .gauge-legend { flex-direction: row; width: 100%; justify-content: space-between; }
+    .table-wrap { display: none; }
+    .mobile-cards { display: grid; gap: 10px; }
+    .heatmap { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    .heat-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .today-row { grid-template-columns: minmax(70px, 1fr) minmax(0, 1.2fr) 58px 44px; gap: 7px; }
+    .note-item { grid-template-columns: 70px minmax(0, 1fr); }
+  }
+  @media print {
+    body { background: #fff; }
+    body::before { display: none; }
+    .page { width: 100%; padding: 0; }
+    .top-actions { display: none !important; }
+    .panel, .kpi, .gauge-card { box-shadow: none; break-inside: avoid; }
+    .hero { break-inside: avoid; }
+    .pub-table { font-size: 9px; }
+    .heat-cell { min-height: 44px; }
+    .chart-panel, .today-panel { min-height: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">目</div>
+      <div>
+        <div class="brand-title">群日报 · 目标看板</div>
+        <div class="brand-sub" id="brand-sub"></div>
+      </div>
+    </div>
+    <div class="top-actions">
+      <span class="badge">内部目标</span>
+      <button class="btn ghost" type="button" onclick="window.print()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
+        打印 / PDF
+      </button>
+      <a class="btn primary" href="__EXPORT_NAME__" download>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+        导出 Excel
+      </a>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-copy">
+        <div class="eyebrow" id="eyebrow"></div>
+        <h1 id="hero-title"></h1>
+        <p class="lede" id="hero-lede"></p>
+        <div class="hero-pills" id="hero-pills"></div>
+      </div>
+      <div class="gauge-card" id="gauge-card" aria-label="团队完成率与时间进度">
+        <div class="gauge-wrap">
+          <svg class="gauge" viewBox="0 0 220 220" role="img" aria-label="团队完成率双环图">
+            <circle class="gauge-track" cx="110" cy="110" r="92"></circle>
+            <circle class="gauge-time" id="gauge-time" cx="110" cy="110" r="92"></circle>
+            <circle class="gauge-track inner" cx="110" cy="110" r="74"></circle>
+            <circle class="gauge-done" id="gauge-done" cx="110" cy="110" r="74"></circle>
+          </svg>
+          <div class="gauge-center">
+            <strong id="gauge-value">—</strong>
+            <span>月完成率</span>
+          </div>
+        </div>
+        <div class="gauge-legend">
+          <span><i class="dot done"></i>完成 <b id="gauge-done-label">—</b></span>
+          <span><i class="dot time"></i>时间 <b id="gauge-time-label">—</b></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="kpis" id="kpis" aria-label="团队关键指标"></section>
+
+    <section class="grid-main">
+      <div class="panel chart-panel">
+        <div class="panel-head">
+          <div><div class="panel-kicker">累计走势</div><h2>团队累计 vs 目标线</h2></div>
+          <div class="legend"><span><i class="line done"></i>实际</span><span><i class="line ideal"></i>目标节奏</span></div>
+        </div>
+        <div class="chart" id="cumulative-chart"></div>
+        <p class="chart-foot" id="chart-foot"></p>
+      </div>
+      <div class="panel today-panel">
+        <div class="panel-head">
+          <div><div class="panel-kicker">今日产出</div><h2>今日 vs 日均目标</h2></div>
+          <span class="muted small" id="today-note"></span>
+        </div>
+        <div class="today-list" id="today-list"></div>
+      </div>
+    </section>
+
+    <section class="panel table-panel" aria-labelledby="table-title">
+      <div class="panel-head">
+        <div><div class="panel-kicker">发布员</div><h2 id="table-title">月度进度</h2></div>
+        <span class="muted small" id="table-note"></span>
+      </div>
+      <div class="table-wrap" id="publisher-table-wrap"></div>
+      <div class="mobile-cards" id="publisher-cards"></div>
+      <p class="table-foot" id="table-foot"></p>
+    </section>
+
+    <section class="grid-bottom">
+      <div class="panel heatmap-panel">
+        <div class="panel-head">
+          <div><div class="panel-kicker">每日节奏</div><h2>团队每日新增</h2></div>
+          <span class="muted small" id="heat-note">颜色越深，越接近日均目标</span>
+        </div>
+        <div class="heatmap" id="heatmap"></div>
+        <div class="heat-legend"><span>少</span><i></i><i class="l1"></i><i class="l2"></i><i class="l3"></i><i class="l4"></i><span>多</span></div>
+        <div class="heat-stats" id="heat-stats"></div>
+      </div>
+      <div class="panel notes-panel">
+        <div class="panel-head">
+          <div><div class="panel-kicker">口径</div><h2>这张表怎么算</h2></div>
+        </div>
+        <div class="note-list" id="note-list"></div>
+        <div class="warning-list" id="warning-list"></div>
+        <div class="callout">完成率只统计<b>已设目标</b>的发布员；未设目标的产出单列，不参与团队完成率。缺日报的日期不按 0 计算，累计按已知数据展示。</div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span id="footer-source"></span>
+    <span>只读采集 · 数据只留本机 · 按同月首个发布员去重</span>
+  </footer>
+</div>
+
+<script>
+const DATA = __DATA__;
+if (new URLSearchParams(window.location.search).has("static")) {
+  document.documentElement.classList.add("static");
+}
+
+const $ = (selector, root = document) => root.querySelector(selector);
+const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+const nf = new Intl.NumberFormat("zh-CN");
+const AVATAR_COLORS = ["#0E7C66", "#B45309", "#6D5BD0", "#B42318", "#2F6F9F", "#7A5C3E"];
+
+const statusMeta = {
+  done: { label: "已达标", cls: "good" },
+  ontrack: { label: "跟上", cls: "good" },
+  behind: { label: "落后", cls: "warn" },
+  critical: { label: "严重落后", cls: "bad" },
+  unset: { label: "未设目标", cls: "neutral" }
+};
+
+function num(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return "—";
+  return nf.format(Math.round(Number(value)));
+}
+function num1(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return "—";
+  return Number(value).toFixed(1);
+}
+function pct(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return "—";
+  return `${Number(value).toFixed(1)}%`;
+}
+function signed(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return "—";
+  const number = Number(value);
+  return `${number > 0 ? "+" : ""}${number.toFixed(1)}`;
+}
+function compact(value) {
+  const number = Number(value) || 0;
+  if (Math.abs(number) >= 10000) return `${(number / 10000).toFixed(number % 10000 ? 1 : 0)}万`;
+  if (Math.abs(number) >= 1000) return `${(number / 1000).toFixed(number % 1000 ? 1 : 0)}k`;
+  return String(Math.round(number));
+}
+function avatarColor(name) {
+  let hash = 0;
+  for (const char of String(name || "")) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
+}
+function avatar(name) {
+  return `<span class="avatar" style="background:${avatarColor(name)}">${escapeHtml(String(name || "?").slice(0, 1))}</span>`;
+}
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[char]));
+}
+function statusPill(status) {
+  const meta = statusMeta[status] || statusMeta.unset;
+  return `<span class="pill ${meta.cls}">${meta.label}</span>`;
+}
+
+function setHero() {
+  const meta = DATA.meta;
+  const team = DATA.team;
+  document.title = meta.title;
+  $("#brand-sub").textContent = meta.brand_sub;
+  $("#eyebrow").textContent = meta.eyebrow;
+
+  let headline;
+  if (!team.target) {
+    headline = `还没有配置目标，先看 <span class="accent">实际产出</span>。`;
+  } else if (team.completion >= 100) {
+    headline = `团队完成 <span class="accent">${pct(team.completion)}</span>，<span class="good-text">已经达标</span>。`;
+  } else if (team.pace_diff >= 0) {
+    headline = `团队完成 <span class="accent">${pct(team.completion)}</span>，<span class="good-text">领先 ${num1(team.pace_diff)} 个点</span>。`;
+  } else {
+    headline = `团队完成 <span class="accent">${pct(team.completion)}</span>，<span class="warn-text">落后 ${num1(Math.abs(team.pace_diff))} 个点</span>。`;
+  }
+  $("#hero-title").innerHTML = headline;
+
+  const todayText = team.today === null ? "今日数据还没出来" : `今日新增 ${num(team.today)} 个`;
+  $("#hero-lede").textContent = `截至 ${meta.date_label}，团队累计 ${num(team.completed)} 个客户，月目标 ${num(team.target)}；${todayText}，按当前日均月底预计 ${num(team.forecast)}。`;
+
+  const pills = [
+    `<span class="pill ghost">已设目标 ${team.configured} 人</span>`,
+    `<span class="pill ghost">第 ${meta.day_index}/${meta.target_days} 天</span>`
+  ];
+  if (team.unconfigured) {
+    pills.push(`<span class="pill neutral">未设目标 ${team.unconfigured} 人</span>`);
+  }
+  if (team.today === null) {
+    pills.push(`<span class="pill warn">今日缺数据</span>`);
+  }
+  $("#hero-pills").innerHTML = pills.join("");
+
+  const status = statusMeta[team.status] || statusMeta.unset;
+  const card = $("#gauge-card");
+  card.classList.toggle("behind", team.status === "behind");
+  card.classList.toggle("bad", team.status === "critical");
+  const outer = 2 * Math.PI * 92;
+  const inner = 2 * Math.PI * 74;
+  $("#gauge-time").style.strokeDasharray = `${outer * Math.min(meta.time_progress, 100) / 100} ${outer}`;
+  $("#gauge-done").style.strokeDasharray = `${inner * Math.min(team.completion, 100) / 100} ${inner}`;
+  $("#gauge-value").textContent = pct(team.completion);
+  $("#gauge-done-label").textContent = pct(team.completion);
+  $("#gauge-time-label").textContent = pct(meta.time_progress);
+}
+
+function renderKpis() {
+  const team = DATA.team;
+  const meta = DATA.meta;
+  const paceClass = team.pace_diff >= 0 ? "good" : (team.pace_diff >= -10 ? "warn" : "bad");
+  const cards = [
+    { label: "月目标", value: num(team.target), foot: `${team.configured} 位发布员`, cls: "" },
+    { label: "月累计", value: num(team.completed), foot: team.today === null ? "今日暂无数据" : `今日 +${num(team.today)}`, cls: "good" },
+    { label: "月完成率", value: pct(team.completion), foot: `距目标 ${num(team.gap)}`, cls: paceClass },
+    { label: "时间进度", value: pct(meta.time_progress), foot: `第 ${meta.day_index}/${meta.target_days} 天`, cls: "" },
+    { label: "进度差", value: `${signed(team.pace_diff)} 个点`, foot: "完成率 − 时间进度", cls: paceClass },
+    { label: "月底预计", value: num(team.forecast), foot: "按当前日均", cls: team.forecast >= team.target ? "good" : "warn" }
+  ];
+  $("#kpis").innerHTML = cards.map((card) => `
+    <div class="kpi ${escapeHtml(card.cls)}">
+      <div class="kpi-label">${escapeHtml(card.label)}</div>
+      <div class="kpi-value">${escapeHtml(card.value)}</div>
+      <div class="kpi-foot">${escapeHtml(card.foot)}</div>
+    </div>
+  `).join("");
+}
+
+function chartSvg() {
+  const daily = DATA.daily || [];
+  const team = DATA.team;
+  const meta = DATA.meta;
+  if (!daily.length) return `<div class="chart-empty">还没有每日数据</div>`;
+  const width = 900, height = 360;
+  const pad = { left: 54, right: 26, top: 24, bottom: 38 };
+  const plotW = width - pad.left - pad.right;
+  const plotH = height - pad.top - pad.bottom;
+  const days = daily.length;
+  const values = [
+    team.target,
+    ...daily.map((item) => item.cumulative ?? 0),
+    ...daily.map((item) => item.ideal ?? 0)
+  ];
+  const maxY = Math.max(...values, 1) * 1.10;
+  const x = (day) => pad.left + (days <= 1 ? plotW / 2 : (day - 1) / (days - 1) * plotW);
+  const y = (value) => pad.top + plotH - (Math.max(0, Number(value) || 0) / maxY) * plotH;
+
+  const grid = [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+    const value = maxY * ratio;
+    const yy = y(value);
+    return `<line x1="${pad.left}" y1="${yy}" x2="${width - pad.right}" y2="${yy}" stroke="#ece6dc" stroke-width="1"/>
+      <text x="${pad.left - 10}" y="${yy + 4}" text-anchor="end" fill="#8a918c" font-size="10">${compact(value)}</text>`;
+  }).join("");
+
+  const actual = daily.filter((item) => item.cumulative !== null);
+  const area = actual.length
+    ? `M ${x(actual[0].day)} ${y(0)} L ${actual.map((item) => `${x(item.day)} ${y(item.cumulative)}`).join(" L ")} L ${x(actual[actual.length - 1].day)} ${y(0)} Z`
+    : "";
+  const actualLine = actual.length
+    ? `M ${actual.map((item) => `${x(item.day)} ${y(item.cumulative)}`).join(" L ")}`
+    : "";
+  const idealLine = `M ${daily.map((item) => `${x(item.day)} ${y(item.ideal)}`).join(" L ")}`;
+  const targetLine = team.target
+    ? `<line x1="${pad.left}" y1="${y(team.target)}" x2="${width - pad.right}" y2="${y(team.target)}" stroke="#1d2624" stroke-width="1" stroke-dasharray="4 6" opacity=".45"/>
+       <text x="${width - pad.right}" y="${y(team.target) - 7}" text-anchor="end" fill="#1d2624" font-size="10" opacity=".65">月目标 ${num(team.target)}</text>`
+    : "";
+  const markerDay = Math.min(Number(String(meta.date).slice(-2)) || meta.day_index, days);
+  const markerX = x(markerDay);
+  const marker = `<line x1="${markerX}" y1="${pad.top}" x2="${markerX}" y2="${pad.top + plotH}" stroke="#b45309" stroke-width="1" stroke-dasharray="3 5" opacity=".55"/>
+    <text x="${markerX}" y="${pad.top - 8}" text-anchor="middle" fill="#b45309" font-size="10">截至 ${meta.date_label}</text>`;
+  const points = actual.map((item) => `
+    <circle cx="${x(item.day)}" cy="${y(item.cumulative)}" r="3.2" fill="#fffdfa" stroke="#0e7c66" stroke-width="2">
+      <title>${item.date || `第 ${item.day} 天`} · 累计 ${num(item.cumulative)} · 今日 ${item.today === null ? "缺数据" : num(item.today)}</title>
+    </circle>
+  `).join("");
+  const last = actual[actual.length - 1];
+  const lastLabel = last
+    ? `<g>
+        <rect x="${Math.min(x(last.day) - 42, width - pad.right - 92)}" y="${Math.max(y(last.cumulative) - 38, 4)}" width="86" height="24" rx="8" fill="#1d2624"/>
+        <text x="${Math.min(x(last.day) - 42, width - pad.right - 92) + 43}" y="${Math.max(y(last.cumulative) - 22, 20)}" text-anchor="middle" fill="#fff" font-size="10">累计 ${num(last.cumulative)}</text>
+      </g>`
+    : "";
+  const xLabels = [];
+  const step = days > 20 ? 5 : (days > 10 ? 3 : 2);
+  for (let day = 1; day <= days; day += step) xLabels.push(day);
+  if (xLabels[xLabels.length - 1] !== days) xLabels.push(days);
+  const xAxis = xLabels.map((day) => `<text x="${x(day)}" y="${height - 12}" text-anchor="middle" fill="#8a918c" font-size="10">${day}</text>`).join("");
+
+  return `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="团队累计完成与目标节奏折线图">
+    <defs>
+      <linearGradient id="area-fill" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#0e7c66" stop-opacity=".22"/>
+        <stop offset="1" stop-color="#0e7c66" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    ${grid}
+    ${targetLine}
+    <path d="${idealLine}" fill="none" stroke="#b9b2a6" stroke-width="1.6" stroke-dasharray="5 7"/>
+    ${marker}
+    ${area ? `<path d="${area}" fill="url(#area-fill)"/>` : ""}
+    ${actualLine ? `<path d="${actualLine}" fill="none" stroke="#0e7c66" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round"/>` : ""}
+    ${points}
+    ${lastLabel}
+    ${xAxis}
+  </svg>`;
+}
+
+function renderCumulative() {
+  const chart = $("#cumulative-chart");
+  chart.innerHTML = chartSvg();
+  const team = DATA.team;
+  const meta = DATA.meta;
+  $("#chart-foot").textContent = team.target
+    ? `实际线截至 ${meta.date_label}；虚线是按 ${meta.target_days} 天均匀的目标节奏。当前还差 ${num(team.gap)} 个客户，剩余 ${meta.remaining_days} 天，日均需要 ${num(meta.remaining_days ? team.gap / meta.remaining_days : team.gap)} 个。`
+    : "还没有配置月目标；图上只展示实际累计。";
+}
+
+function todayRows() {
+  const rows = [...(DATA.publishers || [])].filter((item) => item.configured);
+  rows.sort((left, right) => {
+    const a = left.today_completion === null ? 9999 : left.today_completion;
+    const b = right.today_completion === null ? 9999 : right.today_completion;
+    return a - b || left.name.localeCompare(right.name, "zh-CN");
+  });
+  return rows;
+}
+
+function renderToday() {
+  const rows = todayRows();
+  const maxValue = Math.max(...rows.map((item) => Math.max(Number(item.today) || 0, item.daily_target || 0)), 1) * 1.08;
+  const list = $("#today-list");
+  if (!rows.length) {
+    list.innerHTML = `<div class="chart-empty">还没有配置发布员目标</div>`;
+    return;
+  }
+  $("#today-note").textContent = "落后在前";
+  list.innerHTML = rows.map((item) => {
+    const has = item.today !== null && item.today !== undefined;
+    const value = has ? Number(item.today) : 0;
+    const rate = item.today_completion;
+    const cls = rate === null ? "neutral" : (rate >= 100 ? "good" : (rate >= 80 ? "warn" : "bad"));
+    const fillCls = cls === "good" ? "" : cls;
+    const targetLeft = Math.min(100, (item.daily_target || 0) / maxValue * 100);
+    const fillWidth = Math.min(100, value / maxValue * 100);
+    return `
+      <div class="today-row">
+        <div class="today-name">${avatar(item.name)}<strong title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</strong></div>
+        <div class="today-bar">
+          <span class="today-fill ${fillCls}" style="width:${fillWidth}%"></span>
+          <i class="today-target" style="left:${targetLeft}%"></i>
+        </div>
+        <div class="today-num"><strong>${has ? num(item.today) : "—"}</strong><span>/ ${num1(item.daily_target)}</span></div>
+        <div class="today-rate ${cls}">${pct(rate)}</div>
+      </div>
+    `;
+  }).join("");
+}
+
+function progressCell(item) {
+  if (!item.configured) return `<span class="muted">—</span>`;
+  const width = Math.max(0, Math.min(item.bar || 0, 100));
+  const cls = item.status === "done" || item.status === "ontrack" ? "" : (item.status === "behind" ? "warn" : "bad");
+  return `
+    <div class="rate-cell">
+      <div class="rate-top"><strong>${pct(item.completion)}</strong></div>
+      <div class="progress"><span class="${cls}" style="width:${width}%"></span><i style="left:${Math.min(DATA.meta.time_progress, 100)}%"></i></div>
+    </div>
+  `;
+}
+
+function publisherTable() {
+  const rows = [...(DATA.publishers || []), ...(DATA.unconfigured || []).map((item) => ({
+    ...item,
+    rank: "—",
+    monthly_target: 0,
+    daily_target: 0,
+    today_completion: null,
+    completion: null,
+    gap: null,
+    remaining_daily: null,
+    pace_diff: null,
+    status: "unset",
+    status_label: "未设目标",
+    configured: false
+  }))];
+  const body = rows.map((item) => {
+    const paceCls = item.pace_diff === null ? "neutral" : (item.pace_diff >= 0 ? "good" : (item.pace_diff >= -10 ? "warn" : "bad"));
+    return `
+      <tr class="${item.configured ? "" : "unconfigured"}">
+        <td class="rank">${escapeHtml(item.rank)}</td>
+        <td><span class="pub-person">${avatar(item.name)}${escapeHtml(item.name)}</span></td>
+        <td>${item.configured ? num(item.monthly_target) : "—"}</td>
+        <td>${item.configured ? num1(item.daily_target) : "—"}</td>
+        <td>${num(item.today)}</td>
+        <td>${progressCell(item)}</td>
+        <td>${item.configured ? num(item.completed) : num(item.completed)}</td>
+        <td class="pace ${paceCls}">${item.configured ? `${signed(item.pace_diff)} 点` : "—"}</td>
+        <td>${item.configured ? num(item.gap) : "—"}</td>
+        <td>${item.configured && item.remaining_daily !== null ? num1(item.remaining_daily) : "—"}</td>
+        <td>${statusPill(item.status)}</td>
+      </tr>
+    `;
+  }).join("");
+  $("#publisher-table-wrap").innerHTML = `
+    <table class="pub-table">
+      <caption class="sr-only">发布员月度目标进度</caption>
+      <thead><tr>
+        <th>#</th><th>发布员</th><th>月目标</th><th>日均</th><th>今日</th><th>完成率</th><th>月累计</th><th>进度差</th><th>距目标</th><th>剩余日均</th><th>状态</th>
+      </tr></thead>
+      <tbody>${body}</tbody>
+    </table>
+  `;
+  $("#table-note").textContent = `按完成率排序 · 进度条竖线=时间 ${pct(DATA.meta.time_progress)}`;
+  const team = DATA.team;
+  $("#table-foot").textContent = `团队合计：月目标 ${num(team.target)}，月累计 ${num(team.completed)}，距目标 ${num(team.gap)}；未设目标的发布员不参与合计。`;
+}
+
+function renderCards() {
+  const rows = [...(DATA.publishers || []), ...(DATA.unconfigured || []).map((item) => ({
+    ...item, rank: "—", monthly_target: 0, daily_target: 0, today_completion: null,
+    completion: null, gap: null, remaining_daily: null, pace_diff: null,
+    status: "unset", configured: false
+  }))];
+  $("#publisher-cards").innerHTML = rows.map((item) => {
+    const paceCls = item.pace_diff === null ? "neutral" : (item.pace_diff >= 0 ? "good" : (item.pace_diff >= -10 ? "warn" : "bad"));
+    return `
+      <article class="pub-card ${escapeHtml(item.status)}">
+        <div class="pub-head">
+          <span class="pub-person">${avatar(item.name)}${escapeHtml(item.name)}</span>
+          ${statusPill(item.status)}
+        </div>
+        <div class="pub-numbers">
+          <div><span>今日</span><strong>${num(item.today)}</strong></div>
+          <div><span>月累计</span><strong>${num(item.completed)}</strong></div>
+          <div><span>完成率</span><strong>${pct(item.completion)}</strong></div>
+        </div>
+        ${item.configured ? `<div class="progress"><span class="${item.status === "done" || item.status === "ontrack" ? "" : (item.status === "behind" ? "warn" : "bad")}" style="width:${Math.min(item.bar || 0, 100)}%"></span><i style="left:${Math.min(DATA.meta.time_progress, 100)}%"></i></div>` : ""}
+        <div class="pub-foot">
+          <span>${item.configured ? `目标 ${num(item.monthly_target)} · 日均 ${num1(item.daily_target)}` : "未设目标"}</span>
+          <span>${item.configured ? `距目标 ${num(item.gap)} · 剩余日均 ${item.remaining_daily !== null ? num1(item.remaining_daily) : "—"}` : `累计 ${num(item.completed)}`}</span>
+        </div>
+      </article>
+    `;
+  }).join("");
+}
+
+function renderHeatmap() {
+  const daily = DATA.daily || [];
+  const target = DATA.team.daily_target || 1;
+  $("#heat-note").textContent = `颜色越深，单日产出越高（目标 ${num1(target)}）`;
+  $("#heatmap").innerHTML = daily.map((item) => {
+    if (item.future) {
+      return `<div class="heat-cell future" title="${escapeHtml(item.date)} · 未到"><span class="day">${item.day}</span><span class="val">·</span></div>`;
+    }
+    if (item.legacy) {
+      return `<div class="heat-cell legacy" title="${escapeHtml(item.date)} · 旧版数据"><span class="day">${item.day}</span><span class="val">旧</span></div>`;
+    }
+    if (item.missing) {
+      return `<div class="heat-cell missing" title="${escapeHtml(item.date)} · 缺日报"><span class="day">${item.day}</span><span class="val">缺</span></div>`;
+    }
+    const value = Number(item.today) || 0;
+    const ratio = value / target;
+    const level = ratio >= 1.1 ? 4 : (ratio >= 0.9 ? 3 : (ratio >= 0.7 ? 2 : (value > 0 ? 1 : 0)));
+    return `<div class="heat-cell level-${level}" title="${escapeHtml(item.date)} · 团队新增 ${num(item.today)} · 累计 ${num(item.cumulative)}"><span class="day">${item.day}</span><span class="val">${num(value)}</span></div>`;
+  }).join("");
+}
+
+function renderHeatStats() {
+  const daily = (DATA.daily || []).filter((item) => !item.future && !item.legacy && !item.missing);
+  const container = $("#heat-stats");
+  if (!daily.length) {
+    container.innerHTML = "";
+    return;
+  }
+  const values = daily.map((item) => ({ date: item.date, value: Number(item.today) || 0 }));
+  const total = values.reduce((sum, item) => sum + item.value, 0);
+  const average = total / values.length;
+  const best = values.reduce((top, item) => (item.value > top.value ? item : top), values[0]);
+  const target = Number(DATA.team.daily_target) || 0;
+  const hit = target ? values.filter((item) => item.value >= target).length : null;
+  const cards = [
+    { label: "最高单日", value: num(best.value), meta: String(best.date || "").slice(5) },
+    { label: "已过日均", value: num1(average), meta: `${values.length} 天` },
+    { label: "达标天数", value: hit === null ? "—" : String(hit), meta: hit === null ? "未设目标" : `共 ${values.length} 天` },
+    { label: "目标日均", value: target ? num1(target) : "—", meta: "月目标 ÷ 30" }
+  ];
+  container.innerHTML = cards.map((item) => `
+    <div class="heat-stat"><span>${item.label}</span><strong>${item.value}</strong><em>${escapeHtml(item.meta)}</em></div>
+  `).join("");
+}
+
+function renderNotes() {
+  $("#note-list").innerHTML = (DATA.notes || []).map((note) => `
+    <div class="note-item"><span class="label">${escapeHtml(note.label)}</span><span>${escapeHtml(note.value)}</span></div>
+  `).join("");
+  const warnings = DATA.warnings || [];
+  $("#warning-list").innerHTML = warnings.length
+    ? warnings.map((warning) => `<div class="warning-item">${escapeHtml(warning)}</div>`).join("")
+    : `<div class="warning-item empty">没有数据缺口，所有目标发布员都已纳入统计。</div>`;
+}
+
+function setFooter() {
+  $("#footer-source").textContent = `生成于 ${DATA.meta.generated_at} · 数据源：每日 facts.json · ${DATA.meta.scope_note}`;
+}
+
+setHero();
+renderKpis();
+renderCumulative();
+renderToday();
+publisherTable();
+renderCards();
+renderHeatmap();
+renderHeatStats();
+renderNotes();
+setFooter();
+</script>
+</body>
+</html>

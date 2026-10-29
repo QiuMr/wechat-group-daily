@@ -1,0 +1,20 @@
+{
+  "days": 30,
+  "publishers": [
+    {
+      "name": "示例发布员A",
+      "aliases": ["A", "A（示例）"],
+      "monthly_target": 1600
+    },
+    {
+      "name": "示例发布员B",
+      "aliases": ["B"],
+      "monthly_target": 1400
+    },
+    {
+      "name": "示例发布员C",
+      "aliases": ["C"],
+      "monthly_target": 1500
+    }
+  ]
+}

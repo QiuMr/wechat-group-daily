@@ -6,3 +6,4 @@ config/groups.json
 .tmp*/
 .verify*/
 wxauto_logs/
+config/targets.json
