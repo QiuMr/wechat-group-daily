@@ -5,10 +5,18 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import tempfile
 from datetime import date as date_cls, datetime, timedelta
 from pathlib import Path
 from typing import Any
+
+for _stream in (sys.stdout, sys.stderr):
+    if _stream is not None and hasattr(_stream, "reconfigure"):
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except (OSError, ValueError):
+            pass
 
 SKILL = Path(__file__).resolve().parents[1]
 DEFAULT_CONFIG = SKILL / "config" / "groups.json"
