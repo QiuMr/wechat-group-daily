@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+config/groups.json
+.tmp*/
+.verify*/
+wxauto_logs/

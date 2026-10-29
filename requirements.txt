@@ -1,0 +1,2 @@
+wxauto4==41.1.7
+openpyxl>=3.1,<4

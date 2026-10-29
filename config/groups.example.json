@@ -1,0 +1,70 @@
+{
+  "batch_minutes": 5,
+  "mask": false,
+  "expected_groups": 7,
+  "groups": [
+    {
+      "key": "g1",
+      "name": "请替换成第 1 个群的完整群名",
+      "short": "群1",
+      "display_name": "第 1 个群",
+      "publishers": [
+        "请填发布人"
+      ]
+    },
+    {
+      "key": "g2",
+      "name": "请替换成第 2 个群的完整群名",
+      "short": "群2",
+      "display_name": "第 2 个群",
+      "publishers": [
+        "请填发布人"
+      ]
+    },
+    {
+      "key": "g3",
+      "name": "请替换成第 3 个群的完整群名",
+      "short": "群3",
+      "display_name": "第 3 个群",
+      "publishers": [
+        "请填发布人"
+      ]
+    },
+    {
+      "key": "g4",
+      "name": "请替换成第 4 个群的完整群名",
+      "short": "群4",
+      "display_name": "第 4 个群",
+      "publishers": [
+        "请填发布人"
+      ]
+    },
+    {
+      "key": "g5",
+      "name": "请替换成第 5 个群的完整群名",
+      "short": "群5",
+      "display_name": "第 5 个群",
+      "publishers": [
+        "请填发布人"
+      ]
+    },
+    {
+      "key": "g6",
+      "name": "请替换成第 6 个群的完整群名",
+      "short": "群6",
+      "display_name": "第 6 个群",
+      "publishers": [
+        "请填发布人"
+      ]
+    },
+    {
+      "key": "g7",
+      "name": "请替换成第 7 个群的完整群名",
+      "short": "群7",
+      "display_name": "第 7 个群",
+      "publishers": [
+        "请填发布人"
+      ]
+    }
+  ]
+}
