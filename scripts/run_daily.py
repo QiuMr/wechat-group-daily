@@ -291,7 +291,7 @@ def main() -> int:
                 "pid": os.getpid(),
                 "started_at": started,
                 "log": str(runner_log),
-                "message": f"正在回捞 {len(groups)} 个群，约 15–25 分钟",
+                "message": f"正在回捞 {len(groups)} 个群，约 30–90 分钟（活跃小群更久）",
                 "progress": {"groups": len(groups), "done": 0},
             },
             home,

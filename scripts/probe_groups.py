@@ -653,10 +653,7 @@ def scan_group(
         result["error"] = f"{type(exc).__name__}: {exc}"
         result["traceback"] = traceback.format_exc()
     finally:
-        try:
-            scroll_to_bottom(wx, max_steps=args.bottom_steps)
-        except Exception:  # noqa: BLE001
-            pass
+        # 每个群开始时会先回到底部，收尾再滚一次只会多一个卡死点
         result["elapsed_sec"] = round(time.time() - started, 1)
         sizes = result["window_sizes"]
         result["window_min"] = min(sizes) if sizes else 0
@@ -769,7 +766,7 @@ def main() -> int:
     parser.add_argument("--groups-file", default="groups.txt", help="群名文件，一行一个")
     parser.add_argument("--since", default="yesterday", help="起始时间：yesterday / today / 2026-10-27 00:00")
     parser.add_argument("--until", default="today", help="结束时间：today / 2026-10-28 00:00")
-    parser.add_argument("--max-rounds", type=int, default=150, help="每个群最多向上滚多少轮")
+    parser.add_argument("--max-rounds", type=int, default=2000, help="每个群最多向上滚多少轮")
     parser.add_argument("--wheel-steps", type=int, default=3, help="每轮最多滚几次滚轮")
     parser.add_argument(
         "--adaptive",

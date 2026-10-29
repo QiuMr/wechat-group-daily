@@ -2,6 +2,12 @@
   "batch_minutes": 5,
   "mask": false,
   "expected_groups": 7,
+  "probe": {
+    "max_rounds": 2000,
+    "wheel_steps": 3,
+    "stall_limit": 15,
+    "bottom_steps": 600
+  },
   "groups": [
     {
       "key": "g1",

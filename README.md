@@ -80,7 +80,7 @@ Python 不判断线索和领取：
 # 查状态
 .venv\Scripts\python.exe scripts\status.py --date yesterday
 
-# 采集 + 生成工作台（后台，约 15-25 分钟）
+# 采集 + 生成工作台（后台，约 30-90 分钟）
 .venv\Scripts\python.exe scripts\start_daily.py --date yesterday
 
 # 豆包整理完一个群后校验
@@ -159,6 +159,10 @@ setup_silent.bat -PipMirror https://mirrors.aliyun.com/pypi/simple/
 **安装需要管理员吗？**
 
 不需要。Python 装到当前用户目录，依赖装在技能的 `.venv` 里，不写系统目录。
+
+**某个群只覆盖到今天上午、没扫到昨天？**
+
+这个群窗口小、消息密，滚动到单群上限（默认 2000 轮）还没翻到 00:00。把 `config/groups.json` 的 `probe.max_rounds` 调大（如 4000）再跑一次；仍然到不了才是本机缓存或入群边界。
 
 **微信 4.1.12 以上能跑吗？**
 

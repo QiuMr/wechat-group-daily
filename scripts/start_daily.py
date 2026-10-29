@@ -193,8 +193,8 @@ def main() -> int:
         "pid": process.pid,
         "started_at": now_text(),
         "stage": "starting",
-        "message": "已开始后台采集，约 15–25 分钟；期间不要操作微信。",
-        "eta_minutes": "15-25",
+        "message": "已开始后台采集，约 30–90 分钟；期间不要操作微信。",
+        "eta_minutes": "30-90",
         "log": str(log_path(value, home)),
         "bootstrap_log": str(bootstrap),
     }

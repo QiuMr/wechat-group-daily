@@ -136,7 +136,7 @@ def main() -> int:
                         "started_at": status.get("started_at"),
                         "log": log,
                         "report": report if Path(report).exists() else "",
-                        "next": "等待 15–25 分钟后再查；期间不要操作微信",
+                        "next": "等待 30–90 分钟后再查；期间不要操作微信",
                     }
                 )
             if summary.get("state") == "ready":
@@ -216,7 +216,7 @@ def main() -> int:
             "date": value.isoformat(),
             "date_label": date_label(value),
             "message": "这一天还没有采集过",
-            "next": "运行 start_daily.py 开始采集；约 15–25 分钟",
+            "next": "运行 start_daily.py 开始采集；约 30–90 分钟",
         }
     )
 
